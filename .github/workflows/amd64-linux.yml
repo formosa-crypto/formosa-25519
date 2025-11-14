@@ -14,7 +14,7 @@ jobs:
     runs-on: [self-hosted, linux, X64, amd64-main]
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: preprocess
         run: make -j$JOBS -C src/ CI=1 preprocess-inplace
 
@@ -29,7 +29,7 @@ jobs:
     runs-on: [self-hosted, linux, X64, amd64-main]
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: preprocess
         run: make -j$JOBS -C src/ CI=1 preprocess-inplace
 
@@ -44,7 +44,7 @@ jobs:
     runs-on: [self-hosted, linux, X64, amd64-main]
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: preprocess
         run: make -j$JOBS -C src/ CI=1 preprocess-inplace
 
@@ -59,7 +59,7 @@ jobs:
     runs-on: [self-hosted, linux, X64, amd64-main]
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: preprocess
         run: make -j$JOBS -C src/ CI=1 preprocess-inplace
 
@@ -75,7 +75,7 @@ jobs:
     runs-on: [self-hosted, linux, X64, amd64-main]
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: preprocess
         run: make -j$JOBS -C src/ CI=1 preprocess-inplace
 
@@ -87,7 +87,7 @@ jobs:
     runs-on: [self-hosted, linux, X64, amd64-main]
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: recursive
       - name: preprocess
@@ -101,7 +101,7 @@ jobs:
     runs-on: [self-hosted, linux, X64, amd64-main]
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: preprocess
         run: make -j$JOBS -C src/ CI=1 preprocess-inplace
 
@@ -114,7 +114,7 @@ jobs:
 
       - name: upload artifact - all files in proof
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: formosa-25519-proofs
           path: proof/
