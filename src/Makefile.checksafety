@@ -5,11 +5,11 @@ ifneq ($(OP),)
 SAFETY_FLAGS   ?=
 SAFETY_TIMEOUT ?= 10m
 
-CHECK_SAFETY_SLICE         = (time timeout -v $(SAFETY_TIMEOUT) $(JASMIN) $(JINCLUDE) -slice $* -checksafety $(SAFETY_FLAGS) $< 2> $@) $(CI_CMD)
-CHECK_SAFETY_SLICE_STDOUT  = (time timeout -v $(SAFETY_TIMEOUT) $(JASMIN) $(JINCLUDE) -slice $* -checksafety $(SAFETY_FLAGS) $<      ) $(CI_CMD)
+CHECK_SAFETY_SLICE         = (time timeout -v $(SAFETY_TIMEOUT) $(JASMIN) -slice $* -checksafety $(SAFETY_FLAGS) $< 2> $@) $(CI_CMD)
+CHECK_SAFETY_SLICE_STDOUT  = (time timeout -v $(SAFETY_TIMEOUT) $(JASMIN) -slice $* -checksafety $(SAFETY_FLAGS) $<      ) $(CI_CMD)
 
-CHECK_SAFETY               = (time timeout -v $(SAFETY_TIMEOUT) $(JASMIN) $(JINCLUDE)           -checksafety $(SAFETY_FLAGS) $< 2> $@) $(CI_CMD)
-CHECK_SAFETY_STDOUT        = (time timeout -v $(SAFETY_TIMEOUT) $(JASMIN) $(JINCLUDE)           -checksafety $(SAFETY_FLAGS) $<      ) $(CI_CMD)
+CHECK_SAFETY               = (time timeout -v $(SAFETY_TIMEOUT) $(JASMIN)           -checksafety $(SAFETY_FLAGS) $< 2> $@) $(CI_CMD)
+CHECK_SAFETY_STDOUT        = (time timeout -v $(SAFETY_TIMEOUT) $(JASMIN)           -checksafety $(SAFETY_FLAGS) $<      ) $(CI_CMD)
 
 SAFETY_TARGETS             = $(addsuffix .safety, $(FUNCTIONS))
 SAFETY_TARGETS_STDOUT      = $(addsuffix .stdout, $(SAFETY_TARGETS))

@@ -47,9 +47,8 @@ JASMIN ?= jasminc
 
 JEXT ?= jazz
 override JFLAGS += -stack-zero loopSCT -noinsertarraycopy
-JINCLUDE ?=-I formosa25519:$(SRC)
 
-JASMIN_COMPILE = ($(JASMIN) $(JFLAGS) $(JINCLUDE) -o $@ $<) $(CI_CMD)
+JASMIN_COMPILE = ($(JASMIN) $(JFLAGS) -o $@ $<) $(CI_CMD)
 
 ASSEMBLY_FILES = $(SRCS:%.$(JEXT)=%.s)
 
@@ -57,7 +56,7 @@ ASSEMBLY_FILES = $(SRCS:%.$(JEXT)=%.s)
 # preprocessing vars
 
 JPP ?= $(PROJECT_DIR)/scripts/releaser/jpp-slim
-JPP_JINCLUDE := $(subst -I,,$(JINCLUDE))
+JPP_JINCLUDE := ""
 PREPROCESSED_FILES := $(SRCS:%.$(JEXT)=%.jpp)
 JASMIN_PREPROCESS = ($(JPP) $< $(JPP_JINCLUDE) > $@) $(CI_CMD)
 
@@ -65,11 +64,13 @@ JASMIN_PREPROCESS = ($(JPP) $< $(JPP_JINCLUDE) > $@) $(CI_CMD)
 # -----------------------------------------------------------------------------
 # extraction vars
 
+JASMIN2EC ?= jasmin2ec
+
 EXTRACT_DIR = $(PROOF)/$(REL_IMPLEMENTATION_DIR)
 EXTRACT_ARRAY_DIR = $(PROOF)/arrays
-EFLAGS ?= $(addprefix -ec , $(FUNCTIONS))
+EFLAGS ?= $(addprefix -f , $(FUNCTIONS))
 
-JASMIN_EXTRACT = (cd $(EXTRACT_DIR) && $(JASMIN) $(JINCLUDE) $(EFLAGS) -oecarray $(EXTRACT_ARRAY_DIR) -oec $(notdir $@) $(ABS_IMPLEMENTATION_DIR)/$<) $(CI_CMD)
+JASMIN_EXTRACT = (cd $(EXTRACT_DIR) && $(JASMIN2EC) $(EFLAGS) --output-array=$(EXTRACT_ARRAY_DIR) --array-model=old --output=$(notdir $@) $(ABS_IMPLEMENTATION_DIR)/$<) $(CI_CMD)
 
 EASYCRYPT_FILES = $(SRCS:%.$(JEXT)=$(EXTRACT_DIR)/$(notdir $(EXTRACT_DIR))_%_s.ec)
 
@@ -78,7 +79,7 @@ EASYCRYPT_FILES = $(SRCS:%.$(JEXT)=$(EXTRACT_DIR)/$(notdir $(EXTRACT_DIR))_%_s.e
 # dependencies vars
 
 DEPS_DIR ?= .deps
-DEPS = ((printf "$@: "; printf "$< "; $(JASMIN) $(JINCLUDE) -print-dependencies $<) > $(DEPS_DIR)/$(@F).d) $(CI_CMD)
+DEPS = ((printf "$@: "; printf "$< "; $(JASMIN) -print-dependencies $<) > $(DEPS_DIR)/$(@F).d) $(CI_CMD)
 DEPFILES ?=
 
 
@@ -198,7 +199,6 @@ debug-print-variables:
 	@echo "  JASMIN: $(JASMIN)"
 	@echo "  JEXT: $(JEXT)"
 	@echo "  JFLAGS: $(JFLAGS)"
-	@echo "  JINCLUDE: $(JINCLUDE)"
 	@echo "  SRCS: $(SRCS)"
 	@echo "  ASSEMBLY_FILES: $(ASSEMBLY_FILES)"
 	@echo "  JASMIN_COMPILE: not printed, it is rule dependent."
