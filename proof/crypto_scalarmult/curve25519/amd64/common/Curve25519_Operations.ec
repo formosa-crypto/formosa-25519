@@ -86,11 +86,8 @@ lemma eq_op_montgomery_ladder1 (init : zp) (k : W256.t) :
   spec_montgomery_ladder init k = op_montgomery_ladder1 init k.
  proof.
   rewrite /spec_montgomery_ladder /op_montgomery_ladder1 /=.
-  apply foldl_in_eq.
-  move => nqs ctr inlist => /=.
-  case (spec_ith_bit k ctr).
-      by move => ?; rewrite /spec_swap_tuple /#.
-  by move => ?; rewrite /spec_swap_tuple /#.
+  apply foldl_in_eq => nqs ctr inlist.
+  by rewrite /= /spec_swap_tuple !eq_op_add_and_double.
  qed.
 
 (* lemma: op_montgomery_ladder1 = op_montgomery_ladder2 *)
@@ -442,12 +439,24 @@ op op_invert1(z1 : zp) : zp =
   let t1 = t0 * t1 in
   t1 axiomatized by op_invert1E.
 
+lemma x_mul_exp_x x n :
+  0 <= n =>
+  x * ZModpRing.exp x n = ZModpRing.exp x (n + 1).
+proof. by move => hn; rewrite ZModpRing.exprS. qed.
+
 (* lemma: op_invert1 = op_invert0 *)
 lemma eq_op_invert1 (z1: zp) :
   op_invert1 z1 = op_invert0 z1.
 proof.
  rewrite op_invert1E op_invert0E /= /op_it_sqr /op_sqr /=.
- smt(exprS exprD expE).
+ do 2! rewrite expE 1:// /=.
+ rewrite (x_mul_exp_x z1) 1:// /=.
+ do 2! rewrite expE 1:// /=.
+ do 3! (rewrite -ZModpRing.exprD_nneg 1, 2:// /=; rewrite expE 1:// /=).
+ do 6! (do 2! rewrite -ZModpRing.exprD_nneg 1, 2:// /=; do 2! rewrite expE 1:// /=).
+ do 2! rewrite -ZModpRing.exprD_nneg 1, 2:// /=.
+ rewrite expE 1:// /=.
+ by rewrite -ZModpRing.exprD_nneg.
 qed.
 
 (** split invert2 in 3 parts : jump from it_sqr to it_sqr1 **)

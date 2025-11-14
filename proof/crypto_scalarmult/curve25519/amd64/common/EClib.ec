@@ -17,18 +17,23 @@ lemma foldl_in_eq_r (f1 : 'a1 -> 'b -> 'a1)
  qed.
 
 lemma divzU a b q r:
- 0 <= r < `|b|%Int => a = b * q + r => q = a%/b by smt().
+ 0 <= r < `|b|%Int => a = b * q + r => q = a%/b.
+proof.
+move => hr ->.
+by rewrite mulzC divzMDl 1:/# divz_small.
+qed.
 
 lemma modz_minus x d:
- (d <= x < 2 * d)%Int => x %% d = x - d by smt().
+ (d <= x < 2 * d)%Int => x %% d = x - d.
+proof.
+move => hx.
+have -> : x - d = (x - d) %% d by smt().
+by rewrite -modzBm modzz /#.
+qed.
 
 lemma divz_div a b c:
  0 < b => 0 < c => a %/ b %/ c = a %/ (b * c).
-proof.
-move=> *.
-apply (divzU _ _ _ (b * ((a %/ b) %%c) + a %% b)).
-  split; smt(). smt().
-qed.
+proof. move=> *; rewrite -divz_mul // /#. qed.
 
 (*
 lemma ltr_pmul2 x1 x2 y1 y2:

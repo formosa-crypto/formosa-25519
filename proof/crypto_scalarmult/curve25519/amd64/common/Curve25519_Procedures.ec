@@ -403,7 +403,7 @@ lemma eq_proc_op_add_and_double (qx : zp) (nqs : (zp * zp) * (zp * zp)):
                                 z3 = nqs.`2.`2
          ==> ((res.`1, res.`2),(res.`3, res.`4)) = op_add_and_double qx nqs].
 proof.
-  proc; inline *; wp; skip.
+  proc; inline *; auto => &hr.
   rewrite /op_add_and_double /=. rewrite !ZModpRing.expr2. smt().
 qed.
 

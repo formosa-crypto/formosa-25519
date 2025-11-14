@@ -1,3 +1,6 @@
 [general]
 idirs = ../../arrays/
 rdirs = amd64
+provers = CVC4
+provers = CVC5
+provers = Z3

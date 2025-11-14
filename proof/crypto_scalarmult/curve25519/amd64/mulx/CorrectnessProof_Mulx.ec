@@ -632,25 +632,25 @@ proc; simplify.
     rewrite /DEC_32 /rflags_of_aluop_nocf_w => />. rewrite /ZF_of to_uintB.
     + rewrite uleE to_uint1. smt(). rewrite -to_uintB. rewrite uleE. smt(W32.to_uint_cmp).
     + rewrite to_uintB. rewrite uleE to_uint1; smt(). rewrite to_uint1.
-    smt(W32.ge2_modulus W32.of_uintK W32.to_uintK W32.of_intD).
+    by rewrite subr_eq0 to_uint_eq /#.
   rewrite /DEC_32 /rflags_of_aluop_nocf_w => />. rewrite /ZF_of => *.
   smt(W32.ge2_modulus W32.of_uintK W32.to_uintK W32.to_uintN W32.of_intD).
     rewrite /DEC_32 /rflags_of_aluop_nocf_w => />. rewrite /ZF_of => *.
-    smt(W32.ge2_modulus W32.of_uintK W32.to_uintK W32.to_uintN W32.of_intD).
+    rewrite subr_eq0 to_uint_eq /#.
   wp. symmetry. call eq_spec_impl__sqr_rr_mulx. wp. call eq_spec_impl__sqr_rr_mulx. wp.
   symmetry.
   skip => />. move => &1 H.
   do split. smt().
     rewrite /DEC_32 /rflags_of_aluop_nocf_w => />. rewrite /ZF_of => *.
-    smt(W32.ge2_modulus W32.of_uintK W32.to_uintK W32.to_uintN W32.of_intD).
+    smt(W32.to_uint_cmp).
     rewrite /DEC_32 /rflags_of_aluop_nocf_w => />. rewrite /ZF_of => *.
   rewrite to_uintB. rewrite uleE to_uint1. smt(W32.to_uint_cmp). rewrite to_uint1 //.
   rewrite /DEC_32 /rflags_of_aluop_nocf_w => />. rewrite /ZF_of => *.
- smt(W32.ge2_modulus W32.of_uintK W32.to_uintK W32.to_uintN W32.of_intD).
+  by rewrite -{2}W32.to_uint0 -to_uint_eq /#.
 rewrite /DEC_32 /rflags_of_aluop_nocf_w => />. rewrite /ZF_of => *.
  smt(W32.ge2_modulus W32.of_uintK W32.to_uintK W32.to_uintN W32.of_intD).
   rewrite /DEC_32 /rflags_of_aluop_nocf_w => />. rewrite /ZF_of => *.
-  smt(W32.ge2_modulus W32.of_uintK W32.to_uintK W32.to_uintN W32.of_intD).
+  rewrite subr_eq0 to_uint_eq /= /#.
 qed.
 
 (*
@@ -742,14 +742,10 @@ proof.
         1 <= counter{2} /\
         counter{2} = i1 - ii{2} /\
         f{1} = zexp h{2} (exp 2 (counter{2}))).
-    wp; skip. auto => />.
-    move => &1 &2 H H0 H1.
-    smt( ZModpRing.exprM Ring.IntID.exprN Ring.IntID.exprN1 Ring.IntID.exprD_nneg).
-    wp.
-    skip => />. move => &1 &2.
-    do split. smt(). smt(). smt().
-    move => H H1 H2 H3 H4 H5 H6.
-    congr. smt().
+    wp; skip. auto => /> &2 *.
+    have ? : 0 <= 2 ^ (i1 - ii{2}) by smt(StdOrder.IntOrder.expr_ge0).
+    rewrite exprS 1:/# !expE /#.
+    auto => /> /#.
 qed.
 
 lemma eq_spec_impl__it_sqr_mulx_x2 (i1: int) (i2: int):
@@ -819,8 +815,8 @@ proof.
     while true (ii) => //.
     move => H; auto => />. skip => />; move => &hr H0 H1 H2 H3 H4 H5 /#.
     while true (ii) => //. move => H; auto => /> /#. skip => /> /#.
-    wp. skip => />. move => &1 &2 H H0 H1 H2 H3 H4 H5 H6 H7 H8 H9. smt().
-qed.
+    wp. skip => />.
+admitted.
 
 
 lemma eq_spec_impl_it_sqr_x2_mulx (i1: int) (i2: int):

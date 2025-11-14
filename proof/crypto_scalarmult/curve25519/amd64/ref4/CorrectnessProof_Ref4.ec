@@ -698,7 +698,7 @@ equiv eq_spec_impl_init_points_ref4 :
         res{1}.`4 = inzpRep4 res{2}.`4.
 proof.
     proc.
-    wp. unroll for{2} ^while. wp. skip. move => &1 &2 H H0 H1 H2 H3 H4 H5 H6.
+    wp. unroll for{2} ^while. auto => />.
     split; auto => />. rewrite /H4 /H0 /H2 /H3 /Zp.one /set0_64_ /inzpRep4 => />.
         rewrite /valRep4 /to_list /mkseq -iotaredE => />.
     split; auto => />. rewrite /H5  /H0 /H3 /H2 /Zp.zero /set0_64_ /inzpRep4 => />.
@@ -872,8 +872,8 @@ proc. simplify. wp. sp.
     move => H6 H7 H8 H9. split. split. apply H9. split.
     rewrite to_uintB. rewrite  uleE => />. by smt(). rewrite to_uint1 H0 //.
     split. move: H1. smt(). move: H2. smt(). split. rewrite H0. move => H10.
-    smt(W32.of_uintK W32.to_uintK W32.of_intN W32.to_uintN W32.of_intD).
-    smt(W32.of_uintK W32.to_uintK W32.of_intN W32.to_uintN W32.of_intD).
+    rewrite subr_eq0 to_uint_eq /#.
+    rewrite subr_eq0 to_uint_eq /#.
     skip. auto => />. wp.
     rewrite /DEC_32 /rflags_of_aluop_nocf_w /ZF_of => /=.
     call eq_spec_impl_sqr_p_ref4.
@@ -881,7 +881,7 @@ proc. simplify. wp. sp.
     rewrite to_uintB. rewrite uleE => />. move: H. smt().
     rewrite to_uint1 //. split. move: H0. smt(). move: H. smt().
     split. move => H1.
-    smt(W32.ge2_modulus W32.of_uintK W32.to_uintK W32.to_uintN W32.of_intD).
+    rewrite subr_eq0 to_uint_eq /#.
     move => H1. move: H. smt().
 qed.
 
