@@ -589,10 +589,8 @@ lemma eq_proc_op_scalarmult_internal (u: zp, k: W256.t) :
 proof.
   proc; sp.
   ecall (eq_proc_op_encode_point (x2, z2)). simplify.
-  ecall (eq_proc_op_montgomery_ladder u'' k'). simplify. skip.
-  move => &1 [H0] [H1] [H2] [H3] [H4] [H5] [H6] H7. split.
-  rewrite H6 => />.
-  move => H8 H9 H10 H11 H12. smt().
+  ecall (eq_proc_op_montgomery_ladder u'' k').
+  by auto => &1 /> ? _ [] /= a b c d <- _.
 qed.
 
 lemma eq_proc_op_scalarmult (k u : W256.t) :
@@ -606,11 +604,7 @@ proof.
   ecall (eq_proc_op_scalarmult_internal u'' k').
   ecall (eq_proc_op_decode_u_coordinate u').
   ecall (eq_proc_op_decode_scalar k').
-  simplify. sp. skip.
-  move => &hr [H] [H0] H1 H2 H3 H4 H5. split. rewrite H3 H0. apply kb0f.
-  move=> H6 H7 ->. rewrite !op_encode_pointE. auto => />. congr. congr. congr. congr. congr.
-  rewrite H5 H3 H1 H0 => />.
-rewrite H5 H1 H3 H0 => />.
+  auto.
  qed.
 
 lemma eq_proc_op_scalarmult_base (k : W256.t) :
@@ -622,10 +616,7 @@ proof.
   have kb0f  : (dk).[0] = false. (* k bit 0 false *)
       rewrite /dk /spec_decode_scalar_25519 //.
   ecall (eq_proc_op_scalarmult_internal u'' k').
-  ecall (eq_proc_op_decode_u_coordinate_base).
-  ecall (eq_proc_op_decode_scalar k').   simplify. sp. skip.
-  move => &hr [H] [H0] [H1] [H2] [H3] H4 H5 H6 H7 H8. split. rewrite H6 H4. apply kb0f.
-  move=> H9 H10 ->. rewrite /op_scalarmult_base  /op_scalarmult. auto => />.
-  rewrite !op_encode_pointE. progress. congr; congr; congr; congr. congr. congr.
-  rewrite H6 H4 => />. congr. congr. congr. rewrite H6 H4 => />.
+  call (eq_proc_op_decode_u_coordinate_base).
+  call (eq_proc_op_decode_scalar k).
+  auto.
  qed.
