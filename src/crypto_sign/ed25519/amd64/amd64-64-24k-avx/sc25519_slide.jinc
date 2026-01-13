@@ -1,69 +1,116 @@
+/**
+ * function sc25519_slide
+ * @param {reg u64[4]} s - Scalar in 64-bit limb representation
+ * @param {reg ptr u8[256]} r - ptr to resulting windows
+ * @param {reg u64} swindowsize - Size of a window
+ * @returns {reg ptr u8[256]} - The scalar in sliding windows of size swindowsize
+ * 
+ * This functions computes a swindowsize-bit sliding window representation of the 256-bit scalar s.
+ * Each window is signed to make use of NAF.
+*/
 #[sct="transient * { ptr: public, val: { n: public, s: transient } } * public * msf -> { ptr: public, val: { n: public, s: transient } } * msf"]
 fn sc25519_slide(reg u64[4] s, reg ptr u8[256] r, reg u64 swindowsize, #msf reg u64 msf) -> reg ptr u8[256], #msf reg u64
 {
-	reg u16 c_2 inv_val neg_val new_val new_window state state_01;
-	reg bool cond s1 s2 zf;
-	reg u64 _1r addr b curr i z;
-	stack u64[4] s_st;
-	inline int j;
-	
-	swindowsize -= 1;
-	
-	s_st = #copy(s);
-	
-	state = 2;
-	?{}, new_window = #set0_16();
-	?{}, addr = #set0();
-	b = #LEA(swindowsize + 1);
-	?{}, i = #set0();
-	_1r = 1;
-	?{}, z = #set0();
-	for j=1 to 5
-	{
-		curr = s_st[j-1];
-		curr = #protect(curr, msf);
-		while{cond=(i < 64*j);}(cond){
-			msf = #update_msf(cond, msf);
-			
-			new_val = (16u)curr;
-			new_val &= 1;
-			inv_val = new_val;
-			
-			c_2 = #LEA_16(2 + new_val);
-			
-			?{}, new_val = #SHL_16(new_val, (8u)b);
-			neg_val = new_val;
-			neg_val = -neg_val;
-			
-			// Set state to 1 on critical bit
-			?{"==" = s1, ">u" = s2} = #CMP(b, swindowsize);
-			new_val = #CMOVcc_16(s2, (16u)z, new_val);
-			new_val = #CMOVcc_16(s1, neg_val, new_val);
-			state = #CMOVcc_16(s1, c_2, state);
-			new_window = #LEA_16(new_window + new_val);
-			
-			// XOR in state 4, otherwise set to 0 anyways
-			state_01 = state;
-			state_01 = state_01 >> 1;
-			inv_val ^= state;
-			?{ ZF = zf }, inv_val = #AND_16(inv_val, state_01);
-			r[i] = inv_val;
-			
-			// Write updated value to the target
-			r[addr] = new_window;
-			b = #LEA(b + 1);
-			
-			// State 0 setup (jump to state 1 immidiatly)
-			b = #CMOVcc(!zf, _1r, b);
-			new_window = #CMOVcc_16(!zf, (16u)_1r, new_window);
-			state = #CMOVcc_16(!zf, z, state);
-			addr = #CMOVcc(!zf, i, addr);
-			
-			curr = curr >> 1;
-			i = #LEA(i + 1);
-		}
-		msf = #update_msf(!cond, msf);
-	}
-	
-	return r, msf;
+  reg u16 c_2;  // Always 2+current bit, determines the state on window end
+  reg u16 inv_val; // 1 if in state 3 and current bit = 0
+  reg u16 neg_val; // - current bit
+  reg u16 new_val;  // current bit
+  reg u16 new_window; // Current window
+  reg u16 state; // State
+  reg u16 state_01; // MSB of the state
+  reg bool cond s1 s2 zf;
+  reg u64 _1r z;  // Constant 1, 0
+  reg u64 addr b; // Address, size of the window
+  reg u64 curr; // Current limb
+  reg u64 i; // Loop index
+  stack u64[4] s_st;
+  inline int j;
+
+  s_st = #copy(s);
+  
+  /*
+    The implementation uses a state machine to do the computation in constant time:
+    - State 0 -> Computing a new window, Add the current bit as the new LSB
+    - State 2 -> Wait for a 1 to start a new window
+    - State 3 -> Finished negative window, so invert 0 until first 1 is found
+  */
+  // Start in state 2
+  state = 2;
+  
+  // First window and address are 0
+  ?{}, new_window = #set0_16();
+  ?{}, addr = #set0();
+  // Maximum size of a window
+  b = #LEA(swindowsize + 1);
+  // Loop counter, static 0 and 1 for CMOVs
+  ?{}, i = #set0();
+  _1r = 1;
+  ?{}, z = #set0();
+  
+  
+  // Iterate over all limbs of the scalar
+  for j=1 to 5
+  {
+    // Load and protect current limb
+    curr = s_st[j-1];
+    curr = #protect(curr, msf);
+    
+    // Each iteration handles one bit of the scalar
+    while{cond=(i < 64*j);}(cond){
+      msf = #update_msf(cond, msf);
+      
+      // Get current bit
+      new_val = (16u)curr;
+      new_val &= 1;
+      inv_val = new_val;
+      
+      // If this is the last bit, go either to state 2 or three
+      c_2 = #LEA_16(2 + new_val);
+      
+      // Shift bit to the correct position
+      ?{}, new_val = #SHL_16(new_val, (8u)b);
+      // Compute value, that is subtracted
+      neg_val = new_val;
+      neg_val = -neg_val;
+      
+      // Set s1 on critical bit
+      ?{"==" = s1, ">u" = s2} = #CMP(b, swindowsize);
+      // Forget current value if window is out of bounds
+      new_val = #CMOVcc_16(s2, (16u)z, new_val);
+      // Else take the positive value, or negative if b==windowsize
+      new_val = #CMOVcc_16(s1, neg_val, new_val);
+      // Set state to 2 or 3 if b==windowsize
+      state = #CMOVcc_16(s1, c_2, state);
+      // Compute new window value
+      new_window = #LEA_16(new_window + new_val);
+      
+      // Handle state 2 and 3
+      // state_01 is 1 in these states
+      state_01 = state;
+      state_01 = state_01 >> 1;
+      // 0 if state 2 and 0 or state 3 and 1
+      inv_val ^= state;
+      // set 0 bits to 1 in state 3 and evaluate new window condition
+      ?{ ZF = zf }, inv_val = #AND_16(inv_val, state_01);
+      r[i] = inv_val;
+      
+      // Write updated value to the target
+      r[addr] = new_window;
+      b = #LEA(b + 1);
+      
+      // State 0 setup if new window is started (zf)
+      b = #CMOVcc(!zf, _1r, b);
+      // Windows always start with 1
+      new_window = #CMOVcc_16(!zf, (16u)_1r, new_window);
+      state = #CMOVcc_16(!zf, z, state);
+      addr = #CMOVcc(!zf, i, addr);
+      
+      // Go to next bit
+      curr = curr >> 1;
+      i = #LEA(i + 1);
+    }
+    msf = #update_msf(!cond, msf);
+  }
+
+  return r, msf;
 }

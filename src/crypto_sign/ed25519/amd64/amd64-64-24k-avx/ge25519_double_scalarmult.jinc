@@ -69,7 +69,7 @@ inline fn __ge25519_double_scalarmult_vartime(stack u64[16] p1, reg u64[4] n m, 
 	ms = #copy(m);
 	// Compute sliding windows for n
 	// Set window size for Public-key scalar
-	windowsize = S1_SWINDOWSIZE;
+	windowsize = S1_SWINDOWSIZE - 1;
 	#declassify np = n_slide;
 	// Compute windows
 	#update_after_call
@@ -79,7 +79,7 @@ inline fn __ge25519_double_scalarmult_vartime(stack u64[16] p1, reg u64[4] n m, 
 	// Compute sliding windows for m
 	m = #copy(ms);
 	// Set window size for Base-point scalar
-	windowsize = S2_SWINDOWSIZE;
+	windowsize = S2_SWINDOWSIZE - 1;
 	#declassify mp = m_slide;
 	// Compute windows
 	#update_after_call

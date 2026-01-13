@@ -158,7 +158,7 @@ inline fn sc25519_mul_rsr(stack u64[4] fs, reg u64[4] g) -> reg u64[4]
 {
   reg u64 f z;
   reg u64[4] h r;
-  stack u64[8] res;
+  reg u64[8] res;
   reg bool cf of;
   inline int i;
 	

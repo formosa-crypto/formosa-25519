@@ -1,4 +1,4 @@
-u256 _32x15 = (32u8)[0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f];
+require "shared_const.jinc"
 
 /**
  * function sc25519_window4
@@ -26,9 +26,9 @@ inline fn sc25519_window4(reg u64[4] s) -> stack u8[64]
 	
 	// v holds low 4 bits of each byte, w holds high 4 bits of each byte
 	w_256 = v_256;
-	v_256 = #VPAND_256(v_256, _32x15);
+	v_256 = #VPAND_256(v_256, _15x32);
 	w_256 = #VPSRL_4u64(w_256, 4);
-	w_256 = #VPAND_256(w_256, _32x15);
+	w_256 = #VPAND_256(w_256, _15x32);
 	
 	// Interleave v and w to get bits in the correct order
 	r_low = #VPUNPCKL_32u8(v_256, w_256);

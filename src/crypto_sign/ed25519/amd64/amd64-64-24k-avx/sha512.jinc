@@ -1,6 +1,7 @@
 require "shared_const.jinc"
 require "sha512_globals.jinc"
 
+// Constants for AVX instructions
 u256[4] _0_128 = {
 	(4u64)[0x1f1e1d1c1b1a1918, 0x1716151413121110, 0x0f0e0d0c0b0a0908, 0x0706050403020100],
 	(4u64)[0x3f3e3d3c3b3a3938, 0x3736353433323130, 0x2f2e2d2c2b2a2928, 0x2726252423222120],
@@ -10,6 +11,13 @@ u256[4] _0_128 = {
 
 u256 x80 = (4u64)[0x8080808080808080, 0x8080808080808080, 0x8080808080808080, 0x8080808080808080];
 
+/**
+ * function __initH_ref
+ * @returns {stack u64[8]} - The SHA-512 H value loaded on the stack
+ * 
+ * This function implements the #BSWAP function
+ * using DOIT instructions.
+*/
 inline fn __initH_ref() -> stack u64[8]
 {
   inline int i;
@@ -26,198 +34,42 @@ inline fn __initH_ref() -> stack u64[8]
   return H;
 }
 
-inline fn __load_H_ref(stack u64[8] H) -> reg u64, reg u64, reg u64, reg u64,
-                                            reg u64, reg u64, reg u64, reg u64
-{
-  reg u64 a b c d e f g h;
-
-  a = H[0];
-  b = H[1];
-  c = H[2];
-  d = H[3];
-  e = H[4];
-  f = H[5];
-  g = H[6];
-  h = H[7];
-
-  return a, b, c, d, e, f, g, h;
-}
-
-inline fn __store_H_ref(reg u64 a b c d e f g h) -> stack u64[8]
-{
-  stack u64[8] H;
-  
-  H[0] = a;
-  H[1] = b;
-  H[2] = c;
-  H[3] = d;
-  H[4] = e;
-  H[5] = f;
-  H[6] = g;
-  H[7] = h;
-
-  return H;
-}
-
+/**
+ * function __bswap
+ * @param {reg u64} a - 64-bit register
+ * @returns {reg u64} - Input with swapped endianess
+ * 
+ * This function implements the #BSWAP function
+ * using DOIT instructions.
+*/
 inline fn __bswap(reg u64 a) -> reg u64 {
-	reg u8 a_8;
-	reg u64 b b_64;
-	inline int i;
+	reg u256 bswap_256 v_256;
 	
-	?{}, b = #set0();
+	// Load mapping for endianess swap
+	bswap_256 = bswap_indices;
+	v_256 = (256u)#VMOV(a);
+  
+  v_256 = #VPSHUFB_256(v_256, bswap_256);
+  
+  a = #VPEXTR_64(v_256, 0);
 	
-	for i=0 to 8{
-		b = b << 8;
-		a_8 = (8u)a;
-		b_64 = (64u)a_8;
-		b |= b_64;
-		a = a >> 8;
-	}
-	
-	return b;
+	return a;
 }
 
-inline fn __ROTR_ref(reg u64 x, inline int c) -> reg u64
-{
-  reg u64 r;
-  
-  r = #RORX_64(x, c);
-  return r;
-}
-
-//(x & y) ^ (!x & z)
-inline fn __CH_ref(reg u64 x y z) -> reg u64
-{
-  reg u64 r s;
-
-  r  =  x;
-  r &=  y;
-  s  =  !x & z;
-  r ^=  s;
-
-  return r;
-}
-
-//(x & y) ^ (x & z) ^ (y & z)
-inline fn __MAJ_ref(reg u64 x y z) -> reg u64
-{
-  reg u64 r s;
-
-  // Maybe keeping track of x & y allows reusing them next round
-  r  = y;
-  r ^= z;
-  r &= x;
-  
-  s  = y;
-  s &= z;
-  r ^= s;
-
-  return r;
-}
-
-// (x >>> 28) ^ (x >>> 34) ^ (x >>> 39)
-inline fn __BSIG0_ref(reg u64 x) -> reg u64
-{
-  reg u64 r s;
-
-  r  = __ROTR_ref(x, 28);
-  s  = __ROTR_ref(x, 34);
-  r ^= s;
-  s  = __ROTR_ref(x, 39);
-  r ^= s;
-
-  return r;
-}
-
-// (x >>> 14) ^ (x >>> 18) ^ (x >>> 41)
-inline fn __BSIG1_ref(reg u64 x) -> reg u64
-{
-  reg u64 r s;
-
-  r  = __ROTR_ref(x, 14);
-  s  = __ROTR_ref(x, 18);
-  r ^= s;
-  s  = __ROTR_ref(x, 41);
-  r ^= s;
-
-  return r;
-}
-
-// (x >>> 1) ^ (x >>> 8) ^ (x >> 7)
-inline fn __SSIG0_avx(reg u256 X) -> reg u256
-{
-  reg u256 Xleft63 Xright1 Xsigma0;
-  reg u256 Xleft56 Xright8;
-  reg u256 Xright7;
-
-  Xright1 = #VPSRL_4u64(X, 1);
-  Xleft63 = #VPSLL_4u64(X, 63);
-  Xsigma0 = Xright1 ^ Xleft63;
-  
-  Xright8 = #VPSRL_4u64(X, 8);
-  Xsigma0 ^= Xright8;
-  Xleft56 = #VPSLL_4u64(X, 56);
-  Xsigma0 ^= Xleft56;
-  
-  Xright7 = #VPSRL_4u64(X, 7);
-  Xsigma0 ^= Xright7;
-
-  return Xsigma0;
-}
-
-inline fn __SSIG1_avx(reg u128 W) -> reg u256
-{
-  reg u128 Wleft45 Wright19 Wsigma1;
-  reg u128 Wleft3 Wright61;
-  reg u128 Wright6;
-  reg u256 W_256;
-  
-  Wright19 = #VPSRL_2u64(W, 19);
-  Wleft45 = #VPSLL_2u64(W, 45);
-  Wsigma1 = Wleft45 ^ Wright19;
-  
-  Wright61 = #VPSRL_2u64(W, 61);
-  Wsigma1 ^= Wright61;
-  Wleft3 = #VPSLL_2u64(W, 3);
-  Wsigma1 ^= Wleft3;
-  
-  Wright6 = #VPSRL_2u64(W, 6);
-  
-  W_256 = (256u)#VPXOR_128(Wsigma1, Wright6);
-  
-  return W_256;
-}
-
-// Wt = SSIG1(W(t-2)) + W(t-7) + SSIG0(t-15) + W(t-16)
-inline fn __Wt_part_avx(stack u64[20] W, reg ptr u64[80] Kp, reg u64 tr, inline int i) -> stack u64[20], reg u256
-{
-	reg u128 W_128 X_128;
-	reg u256 D_256 Wsigma1_256 X0 X1;
-	
-	X0 = W.[:u256 (32*i)];
-	X1 = W.[:u256 (32*i + 8)];
-	X1 = __SSIG0_avx(X1);
-	X0 = #VPADD_4u64(X0, X1);
-	X0 = #VPADD_4u64(X0, W.[:u256 (72 + 32*i) % 128]);
-	
-	W_128 = W.[:u128 (112 + 32*i) % 128];
-	Wsigma1_256 = __SSIG1_avx(W_128);
-	X0 = #VPADD_4u64(X0, Wsigma1_256);
-	
-	X_128 = (128u) X0;
-	Wsigma1_256 = __SSIG1_avx(X_128);
-	Wsigma1_256 = #VPERMQ(Wsigma1_256, 0x4e);
-	X0 = #VPADD_4u64(X0, Wsigma1_256);
-	W[:u256 i] = X0;
-	
-	D_256 = #VPADD_4u64(X0, Kp.[:u256 (int)8*tr + 32*i]);
-	
-  return W, D_256;
-}
-
-inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg u64[8]
+/**
+ * function __inner_sha
+ * @param {reg u64[8]} H_r - Current hash
+ * @param {reg u256[4]} m - 128-bytes of message
+ * @returns {reg u64[8]} - The hash H_r after digesting m
+ * 
+ * This functions digests for the current state H and the message blocks m.
+ * To avoid moving all state variables (a,b,c,d,e,f,g,h) -> (b,c,d,e,f,g,h,a),
+ * we unroll eight rounds so that variables are stationary.
+*/
+inline fn __inner_sha(reg u64[8] H_r, reg u256[4] m, #msf reg u64 msf) -> reg u64[8], #msf reg u64
 {
 	reg u64 a b c d e f g h;
+	reg u64 j;
 	reg u64 aAndb cAndd eAndf gAndh;
 	reg u64 ch r18 r34 r39 r41;
 	reg u64 aSigma0 bSigma0 cSigma0 dSigma0 eSigma0 fSigma0 gSigma0 hSigma0;
@@ -231,9 +83,12 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 	reg u256 bswap_256;
 	reg u256 Wsigma1_256 Xleft56 Xleft63 Xright1 Xright7 Xright8 Xsigma0;
 	reg u256[16] D X;
-	inline int i;
+	reg ptr u256[4] kp4;
+	reg ptr u64[80] Kp;
+	reg bool cond;
+	#mmx reg u64 msf_s;
 	
-	// a, b, c, d, e, f, g, h = __load_H_ref(H);
+	// Load state
 	a = H_r[0];
 	b = H_r[1];
 	c = H_r[2];
@@ -243,16 +98,18 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 	g = H_r[6];
 	h = H_r[7];
 	
+	// Load message with endianess swap
+	msf_s = #mov_msf(msf);
   bswap_256 = bswap_indices;
   
-  X[0] = m[0];
-  X[0] = #VPSHUFB_256(X[0], bswap_256);
+  X[0] = #VPSHUFB_256(m[0], bswap_256);
   
+  // Start round 1 functions
   ch = g;
 	eSigma1 = #RORX_64(e, 14);
 	ch ^= f;
 	
-	D[0] = #VPADD_4u64(X[0], Kp[:u256 0]);
+	D[0] = #VPADD_4u64(X[0], SHA512_K[:u256 0]);
 	
 	r18 = #RORX_64(e, 18);
 	eSigma1 ^= r18;
@@ -289,11 +146,10 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 	dSigma1 = #RORX_64(d, 14);
 	ch ^= e;
 	
-	X[4] = m[1];
-	X[4] = #VPSHUFB_256(X[4], bswap_256);
+	X[4] = #VPSHUFB_256(m[1], bswap_256);
 	h += maj[7];
 	r18 = #RORX_64(d, 18);
-	D[4] = #VPADD_4u64(X[4], Kp[:u256 1]);
+	D[4] = #VPADD_4u64(X[4], SHA512_K[:u256 1]);
 	ch &= d;
 	dSigma1 ^= r18;
 	maj[6] &= h;
@@ -368,7 +224,6 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 	maj[4] &= f;
 	ch ^= d;
 	r41 = #RORX_64(b, 41);
-	X[8] = m[2];
 	bSigma1 ^= r41;
 	fSigma0 = #RORX_64(f, 28);
 	maj[4] ^= gAndh;
@@ -377,7 +232,6 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 	e += bSigma1;
 	fSigma0 ^= r34;
 	d += wc[4];
-	X[12] = m[3];
 	a += e;
 	r39 = #RORX_64(f, 39);
 	e += maj[4];
@@ -389,12 +243,12 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 	ch = c;
 	r18 = #RORX_64(a, 18);
 	ch ^= b;
-	X[8] = #VPSHUFB_256(X[8], bswap_256);
+	X[8] = #VPSHUFB_256(m[2], bswap_256);
 	aSigma1 ^= r18;
 	ch &= a;
 	r41 = #RORX_64(a, 41);
 	eSigma0 = #RORX_64(e, 28);
-	D[8] = #VPADD_4u64(X[8], Kp[:u256 2]);
+	D[8] = #VPADD_4u64(X[8], SHA512_K[:u256 2]);
 	aSigma1 ^= r41;
 	ch ^= c;
 	W[:u256 2] = #VMOVDQA_256(X[8]);
@@ -414,7 +268,7 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 	maj[3] &= maj[2];
 	h += d;
 	d += eSigma0;
-	X[12] = #VPSHUFB_256(X[12], bswap_256);
+	X[12] = #VPSHUFB_256(m[3], bswap_256);
 	
 	// Start of round 6 functions
 	ch = b;
@@ -422,7 +276,7 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 	ch ^= a;
 	d += maj[3];
 	hSigma1 = #RORX_64(h, 14);
-	D[12] = #VPADD_4u64(X[12], Kp[:u256 3]);
+	D[12] = #VPADD_4u64(X[12], SHA512_K[:u256 3]);
 	ch &= h;
 	r18 = #RORX_64(h, 18);
 	hSigma1 ^= r18;
@@ -497,9 +351,17 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 	bSigma0 ^= r39;
 	a += bSigma0;
 	
-	
-	for i=0 to 4
-	{
+  msf = #mov_msf(msf_s);
+  
+	j=128;
+	while {cond = (j < 5*128);}(cond) {
+		msf = #update_msf(cond, msf);
+    msf_s = #mov_msf(msf);
+    
+		() = #spill(j);
+		Kp = SHA512_K;
+		kp4 = Kp.[:u256 j:4];
+		
 		// Round 1 functions
 		X[1] = W.[:u256 8];
 		Xright1 = #VPSRL_4u64(X[1], 1);
@@ -636,7 +498,7 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 		e += ch;
 		maj[4] ^= gAndh;
 		fSigma0 = #RORX_64(f, 28);
-		D[0] = #VPADD_4u64(X[0], Kp[:u256 4*i+4]);
+		D[0] = #VPADD_4u64(X[0], kp4[#unaligned 0]);
 		bSigma1 ^= r41;
 		r34 = #RORX_64(f, 34);
 		W[:u256 4] = #VMOVDQA_256(X[0]);
@@ -787,7 +649,7 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 		a += ch;
 		maj[0] ^= cAndd;
 		bSigma0 = #RORX_64(b, 28);
-		D[4] = #VPADD_4u64(X[4], Kp[:u256 4*i+5]);
+		D[4] = #VPADD_4u64(X[4], kp4[#unaligned 1]);
 		wc[:u256 1] = #VMOVDQA_256(D[4]);
 		fSigma1 ^= r41;
 		r34 = #RORX_64(b, 34);
@@ -933,7 +795,7 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 		e += ch;
 		maj[4] ^= gAndh;
 		fSigma0 = #RORX_64(f, 28);
-		D[8] = #VPADD_4u64(X[8], Kp[:u256 4*i+6]);
+		D[8] = #VPADD_4u64(X[8], kp4[#unaligned 2]);
 		wc[:u256 2] = #VMOVDQA_256(D[8]);
 		r34 = #RORX_64(f, 34);
 		bSigma1 ^= r41;
@@ -1079,7 +941,7 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 		W[:u256 3] = #VMOVDQA_256(X[12]);
 		maj[0] ^= cAndd;
 		bSigma0 = #RORX_64(b, 28);
-		D[12] = #VPADD_4u64(X[12], Kp[:u256 4*i+7]);
+		D[12] = #VPADD_4u64(X[12], kp4[#unaligned 3]);
 		wc[:u256 3] = #VMOVDQA_256(D[12]);
 		fSigma1 ^= r41;
 		r34 = #RORX_64(b, 34);
@@ -1090,9 +952,15 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 		a += maj[0];
 		bSigma0 ^= r39;
 		a += bSigma0;
+    
+    msf = #mov_msf(msf_s);
+		() = #unspill(j);
+		j += 128;
 	}
 	
-	
+	msf = #update_msf(!cond, msf);
+  msf_s = #mov_msf(msf);
+  
 	// Start of round 1 functions
 	h += wc[8];
   eSigma1 = #RORX_64(e, 14);
@@ -1306,6 +1174,8 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 	bSigma0 ^= r39;
 	a += bSigma0;
 	
+  msf = #mov_msf(msf_s);
+    
 	a += H[0];
 	b += H[1];
 	c += H[2];
@@ -1315,7 +1185,6 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
 	g += H[6];
 	h += H[7];
 	
-  // H = __store_H_ref(a, b, c, d, e, f, g, h);
   
   // return H;
   H_r[0] = a;
@@ -1327,71 +1196,48 @@ inline fn __inner_sha(reg u64[8] H_r, reg ptr u64[80] Kp, reg u256[4] m) -> reg 
   H_r[6] = g;
   H_r[7] = h;
   
-  return H_r;
+  return H_r, msf;
 }
 
-
-inline fn _blocks_0_ref(reg u256[4] m, stack u64[8] H, #msf reg u64 msf) -> stack u64[8], #msf reg u64
-{
-  reg ptr u64[80] Kp;
-  #mmx reg u64 msf_s;
-  
-  Kp = SHA512_K;
-  
-	msf_s = #mov_msf(msf);
-  H = __inner_sha(H, Kp, m);
-  msf = #mov_msf(msf_s);
-  
-  return H, msf;
-}
-
-
-#[sct="{ ptr: public, val: { n: d, s:secret } } * { ptr: public, val: { n: d, s:secret } } * secret * msf -> { ptr: public, val: { n: d, s:secret } } * { ptr: public, val: { n: d, s:secret } } * msf"]
-inline fn _blocks_1_ref(reg ptr u64[8] H, reg ptr u64[32] sblocks, reg u64 nblocks, #msf reg u64 msf) -> reg ptr u64[8], reg ptr u64[32], #msf reg u64
+/**
+ * function _blocks_1_ref
+ * @param {reg u64[8]} H_r - Current hash
+ * @param {stack u64[32]} sblocks - The last two padded blocks
+ * @param {reg u64} nblocks - Number of padded blocks
+ * @returns {reg u64[8]} - The padded blocks of the SHA-512 hash
+ * 
+ * This functions computes the SHA-512 for the current state H and the padded blocks sblocks.
+*/
+inline fn _blocks_1_ref(reg u64[8] H_r, stack u64[32] sblocks, reg u64 nblocks, #msf reg u64 msf) -> reg u64[8], #msf reg u64
 {
   #spill_to_mmx reg u64 i;
   reg u256 v_256;
-  reg u64[8] H_r;
   reg u256[4] m_buf;
-  #mmx reg ptr u64[8] Hptr_s;
-  stack ptr u64[32] sblocks_s;
-  reg ptr u64[80] Kp;
   reg bool cond;
   inline int t;
-  #mmx reg u64 msf_s;
   
-  Kp = SHA512_K;
   
-  /*v_256 = #VMOVDQA_256(H[u256 0]);
-  Hs[u256 0] = #VMOVDQA_256(v_256);
-  v_256 = #VMOVDQA_256(H[u256 1]);
-  Hs[u256 1] = #VMOVDQA_256(v_256);*/
-  for t=0 to 8
-  { H_r[t] = H[t]; }
-  Hptr_s = H;
-  
+  // Protect and load the number of blocks
   #declassify i = nblocks;
   i = #protect(i, msf);
   
+  // Iterate once or twice (depending on the padding)
   while{cond = (i != 0); }(cond)
   {
     msf = #update_msf(cond, msf);
     
     () = #spill(i);
     
-    sblocks_s = sblocks;
-		msf_s = #mov_msf(msf);
-		
+		// Load the current message
 		for t=0 to 4
 		{
 			m_buf[t] = #VMOVDQA_256(sblocks[:u256 t]);
 		}
 		
-		// Hs = __inner_sha(Hs, Kp, m_buf);
-		H_r = __inner_sha(H_r, Kp, m_buf);
-		msf = #mov_msf(msf_s);
-		sblocks = sblocks_s;
+		// Digest the message
+		H_r, msf = __inner_sha(H_r, m_buf, msf);
 		
+		// Load the next block if two iterations are required
 		for t=0 to 4
     { 
       // Shift sblocks to the left
@@ -1404,49 +1250,54 @@ inline fn _blocks_1_ref(reg ptr u64[8] H, reg ptr u64[32] sblocks, reg u64 nbloc
   }
   msf = #update_msf(!cond, msf);
 	
-	H = Hptr_s;
-	/*v_256 = #VMOVDQA_256(Hs[u256 0]);
-	H[u256 0] = #VMOVDQA_256(v_256);
-	v_256 = #VMOVDQA_256(Hs[u256 1]);
-	H[u256 1] = #VMOVDQA_256(v_256);*/
-	for t=0 to 8
-  { H[t] = H_r[t]; }
-	
-  return H, sblocks, msf;
+  return H_r, msf;
 }
 
+/**
+ * function __lastblocks_ref
+ * @param {stack u8[128]} in - Final input block
+ * @param {reg u64} inlen - Number of set bytes of in
+ * @param {reg u64} bits - Number of bits
+ * @returns {stack u64[32]} - The padded blocks of the SHA-512 hash
+ * 
+ * This functions computes the padding blocks of SHA512.
+*/
 #[sct="{ n: secret, s:secret } * secret * secret * msf -> { n: secret, s:secret } * secret * msf"]
 inline fn __lastblocks_ref(stack u8[128] in, reg u64 inlen bits, #msf reg u64 msf) -> stack u64[32], reg u64, #msf reg u64
 {
-  stack u64[32] sblocks;
-  inline int k;
   reg u64 nblocks nblocks2 v_64;
   reg u256 cmp_eq cmp_lt inlen_256 v_256 z_256;
+  stack u64[32] sblocks;
+  inline int k;
   reg bool l;
 	
+	// Zero-fill the second block
 	z_256 = #set0_256();
-  // Zero-fill the sblocks array
   for k = 4 to 8 { sblocks[:u256 k] = #VMOVDQA_256(z_256); }
   
+  // Broadcast the input length to a vector
   inlen_256 = (256u)#VMOV_64(inlen);
   inlen_256 = #VPBROADCAST_32u8(inlen_256);
   
+  // Build masks to keep all bytes up to inlen and end with a 0x80
 	for k = 0 to 4
 	{
+		v_256 = #VMOVDQA_256(in[:u256 k]);
 		cmp_lt = #VPCMPGT_32u8(inlen_256, _0_128[k]);
 		cmp_eq = #VPCMPEQ_32u8(inlen_256, _0_128[k]);
-		v_256 = #VMOVDQA_256(in[:u256 k]);
 		v_256 = #BLENDV_32u8(z_256, v_256, cmp_lt);
 		v_256 = #BLENDV_32u8(v_256, x80, cmp_eq);
 		
 		sblocks[:u256 k] = #VMOVDQA_256(v_256);
 	}
-
+	
+	// Swap endianess of bitlength
 	bits = __bswap(bits);
 	
   // check if one or two blocks are needed
   ?{"<u" = l} = #CMP(inlen, 112);
   
+  // Finish the padding with the bitlength
   nblocks = 1;
   nblocks2 = 2;
   nblocks = #CMOVcc(l, nblocks, nblocks2);

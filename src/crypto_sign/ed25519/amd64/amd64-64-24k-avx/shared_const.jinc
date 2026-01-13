@@ -5,6 +5,8 @@ u256 _1 = (4u64)[0,0,0,1];
 // Indices for vectorized CMOVs in ge.jinc
 u256 v1234 = (4u64)[4,3,2,1];
 u256 v5678 = (4u64)[8,7,6,5];
+// Masks for AVX code
+u256 _15x32 = (4u64)[0x0f0f0f0f0f0f0f0f, 0x0f0f0f0f0f0f0f0f, 0x0f0f0f0f0f0f0f0f, 0x0f0f0f0f0f0f0f0f];
 // The prime p=2^255-19
 u256 p = (4u64)[0x7fffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffed];
 // The curve order L

@@ -255,7 +255,7 @@ inline fn __mulL_c2
 
 /**
  * function sc25519_barrett
- * @param {stack u64[8]} x - number in 64-bit limb representation
+ * @param {reg u64[8]} x - number in 64-bit limb representation
  * @returns {reg u64[4]} - x % L in 4-limb representation
  * 
  * This function reduces the 8-limb number x below curve order L.
@@ -264,7 +264,7 @@ inline fn __mulL_c2
  * r = (  2**0*x0 +   2**64*x1 + 2**128*x2 + 2**192*x3 +
  			  2**256*x4 +  2**320*x5 + 2**384*x6 + 2**448*x7 ) mod L
 */
-inline fn sc25519_barrett(stack u64[8] x) -> reg u64[4]
+inline fn sc25519_barrett(reg u64[8] x) -> reg u64[4]
 {
 	reg u64 z rax rdx;
 	reg u64[4] r r2 t;
