@@ -1,0 +1,226 @@
+require "shared_const.jinc"
+
+require "../common/64/add4.jinc"
+require "../common/64/cmp4.jinc"
+require "../common/64/sub4.jinc"
+
+require "sqr4.jinc"
+require "mul4.jinc"
+require "fe25519_freeze.jinc"
+require "fe25519_pow2523.jinc"
+
+// Return value for invalid input
+u64[4] point26_x = {0x5bf5acbd527f9b28,0xa4564f8c5508aa23,0x4daaa6d39e2975af,0x6fe31a937f53b071};
+u64[4] point26_y = {26,0,0,0};
+
+inline fn _decode_point(reg mut ptr u64[16] rp, reg ptr u64[4] y, #msf reg u64 msf) -> reg mut ptr u64[16], reg u64, #msf reg u64
+{
+	reg u8 cmp_8 par x_par;						// comparison result, parity, parity
+	reg u64 cmp_64 valid;							// comparison result, valid=1 for valid point 
+	reg u64 x yr;											// x and y coordinates
+	reg u64[4] beta chk;								// square of root, check value
+	reg u64[4] _rx rx ry _ry rt;				// x,y,t coordinate in register
+	reg u64[4] num den den2 den4 den6; // Numerator and powers of the denominator
+	stack u64 valids;									// valid
+	stack u64[4] nums dens den2s;			// Numerator and denominator
+	stack u64[4] xs;										// Spilled x coordinate
+	stack u64[16] rs;
+	
+	reg bool cond is_valid;
+	inline int i;
+	#mmx reg u64 msf_s;
+	
+	msf_s = #mov_msf(msf);
+	() = #spill(rp);
+
+	// Get parity
+	par = y[:u8 31];
+	par = par >> 7;
+	() = #spill(par);
+	
+	// Set z coordinate to 1
+	rs[8] = 1;
+	rs[9] = 0;
+	rs[10] = 0;
+	rs[11] = 0;
+	
+	// Set y coordinate to input with MSB cleared
+	for i=0 to 3
+	{
+		yr = y[i];
+		rs[4+i] = yr;
+		ry[i] = yr;
+	}
+	yr = y[3];
+	yr &= 0x7fffffffffffffff;
+	rs[7] = yr;
+	ry[3] = yr;
+	
+	// Check if y is below p
+	// Reduce y below p check for equality
+	_ry = #copy(ry);
+	ry = __freeze4_rr(ry);
+	cmp_8 = __cmp4_rr(ry, _ry);
+	
+	// valid = 1 if y < p
+	valid = (64u)cmp_8;
+	valids = valid;
+	
+	// num = y^2 - 1
+	// den = y^2*d + 1
+	num = __sqr4_rr(ry);
+	nums = #copy(num);
+	den = __mul4_rsr(ecd, num);
+	num = #copy(nums);
+	num = __dec4(num);
+	nums = __freeze4_sr(num);
+	den = __inc4(den);
+	dens = #copy(den);
+	
+	// Computation of sqrt(num/den)
+  //  1.: computation of num^((p-5)/8)*den^((7p-35)/8) = (num*den^7)^((p-5)/8)
+  
+	den2 = __sqr4_rr(den);
+	den2s = #copy(den2);
+	den4 = __sqr4_rr(den2);
+	den6 = __mul4_rsr(den2s, den4);
+	beta = __mul4_rsr(nums, den6);
+	beta = __mul4_rsr(dens, beta);
+	
+	beta = fe25519_pow2523(beta);
+	
+	// 2. computation of r->x = beta * num * den^3
+  
+	beta = __mul4_rsr(nums, beta);
+	beta = __mul4_rsr(dens, beta);
+	beta = __mul4_rsr(dens, beta);
+	rx = __mul4_rsr(dens, beta);
+	
+	xs = #copy(rx);
+	
+	// 3. Check whether sqrt computation gave correct result, multiply by sqrt(-1) if not:
+  
+  // Verify x=sqrt(num/den)
+  // -> Compute x^2*den and compare with num
+	chk = __sqr4_rr(rx);
+	chk = __mul4_rsr(dens, chk);
+	chk = __freeze4_rr(chk);
+	num = #copy(nums);
+	cmp_8 = __cmp4_rr(chk, num);
+	
+	// If cmp_8=1 do nothing, else multiply with sqrt(-1)
+	msf = #mov_msf(msf_s);
+	rx = #copy(xs);
+	#declassify cmp_8 = cmp_8;
+	cmp_8 = #protect_8(cmp_8, msf);
+	cond = (cmp_8 == 0);
+	if (cond){
+		msf = #update_msf(cond, msf);
+		msf_s = #mov_msf(msf);
+		_rx = __mul4_rsr(sqrtm1, rx);
+		rx = #copy(_rx);
+	}
+	else{
+		msf = #update_msf(!cond, msf);
+		msf_s = #mov_msf(msf);
+	}
+	
+	xs = #copy(rx);
+	
+	// 4. Now we have one of the two square roots, except if input was not a square
+  
+  // Compute x^2*den
+  chk = __sqr4_rr(rx);
+  chk = __mul4_rsr(dens, chk);
+  
+  // If input was square, now x^2*den=num, else set valid to 0
+  num = #copy(nums);
+	chk = __freeze4_rr(chk);
+	cmp_8 = __cmp4_rr(chk, num);
+	cmp_64 = (64u)cmp_8;
+	valids &= cmp_64;
+	
+	// 5. Choose the desired square root according to parity:
+  
+  // Get parity of x
+  rx = #copy(xs);
+  rx = __freeze4_rr(rx);
+  x_par = (8u)rx[0];
+  x_par &= 1;
+ 	
+ 	// If parity matches original parity, negate to unpack negative point
+ 	// Else do nothing
+ 	msf = #mov_msf(msf_s);
+ 	() = #unspill(par);
+ 	#declassify cmp_8 = x_par ^ par;
+	cmp_8 = #protect_8(cmp_8, msf);
+	cond = (cmp_8 == 0);
+ 	if (cond){
+ 		msf = #update_msf(cond, msf);
+		msf_s = #mov_msf(msf);
+ 		for i=0 to 4
+ 		{	?{}, _rx[i] = #set0(); }
+		
+		_rx = __sub4_rrr(_rx, rx);
+		rx = #copy(_rx);
+ 	}
+ 	else{
+		msf = #update_msf(!cond, msf);
+		msf_s = #mov_msf(msf);
+	}
+	
+	// If x is 0 and parity is negative, set to invalid
+	msf = #mov_msf(msf_s);
+	for i=0 to 4
+	{
+		#declassify x = rx[i];
+		rs[i] = x;
+		?{}, _rx[i] = #set0();
+	}
+	
+	cmp_8 = __cmp4_rr(rx, _rx);
+	() = #unspill(par);
+	valid = valids;
+	cmp_8 &= par; // 1 if x=0 and par=1 (negative)
+	cmp_64 = (64u)cmp_8;
+	#declassify valid = !cmp_64 & valid; // Still valid if valid before and cmp_8=0
+	valids = valid;
+	
+	// Build mask to return arbitrary point_26 for invalid input
+	is_valid = (valid == 1);
+	for i=0 to 4 {
+		x = point26_x[i];
+		yr = point26_y[i];
+		x = #CMOVcc(is_valid, rs[i], x);
+		yr = #CMOVcc(is_valid, rs[4+i], yr);
+		rs[i] = x;
+		rs[4+i] = yr;
+	}
+	
+	// Compute t=x*y
+	for i=0 to 4
+	{
+		rx[i] = rs[i];
+	}
+	msf_s = #mov_msf(msf);
+	
+	rt = __mul4_rsr(rs[4:4], rx);
+	
+	msf = #mov_msf(msf_s);
+	
+	for i=0 to 4
+	{
+		#declassify rs[12+i] = rt[i];
+	}
+	
+	() = #unspill(rp);
+	for i=0 to 16
+	{
+		rp[i] = rs[i];
+	}
+	
+	#declassify valid = valids;
+	valid = #protect(valid, msf);
+	
+	return rp, valid, msf;
+}

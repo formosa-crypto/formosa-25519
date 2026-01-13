@@ -7,7 +7,7 @@ require "fe25519_freeze.jinc"
 
 /**
  * function ge25519_pack
- * @param {stack u64[12]} pp - Point in prejective representation
+ * @param {stack u64[12]} pp - Point in projective representation
  * @returns {reg u256} - Compressed input
  * 
  * This function packs the input point p into a 256-bit representation.

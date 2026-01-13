@@ -1,0 +1,27 @@
+/**
+ * function __ith_bit
+ * @param {stack u8[32]} k - Scalar in 64-bit limb representation
+ * @param {reg u64} ctr - Position of the desired bit
+ * @returns {reg u64} - The bit at position ctr in k
+ * 
+ * This functions returns the i-th bit of the scalar in k.
+*/
+inline fn __ith_bit(stack u8[32] k, reg u64 ctr) -> reg u64
+{
+  reg u64 pos bit;
+  
+  // Get the correct byte
+  pos = ctr;
+  pos >>= 3;
+  bit = (64u) k[pos];
+  
+  // Shift out other bits
+  pos = ctr;
+  pos &= 7;
+  bit >>= (pos & 63);
+  
+  // Take lsb
+  bit &= 1;
+
+  return bit;
+}

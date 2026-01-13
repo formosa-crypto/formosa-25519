@@ -140,6 +140,30 @@ inline fn __add4_srr(reg u64[4] f, reg u64[4] g) -> stack u64[4]
 }
 
 /**
+ * function __add4_sss
+ * @param {stack u64[4]} f - ptr to first summand in 64-bit limb representation
+ * @param {stack u64[4]} g - ptr to second summand in 64-bit limb representation
+ * @returns {stack u64[4]} - Sum of f and g in 64-bit limb representation
+ * 
+ * This function adds the two numbers in f and g. First inputs is consumed.
+ * The representation is:
+ * h = f + g
+ * h = 2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3 +
+ *     2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3
+*/
+inline fn __add4_sss(stack u64[4] fs, stack u64[4] gs) -> stack u64[4]
+{
+  reg u64[4] f h;
+  stack u64[4] hs;
+
+  f = #copy(fs);
+  h = __add4_rrs(f, gs);
+  hs = #copy(h);
+
+  return hs;
+}
+
+/**
  * function __inc4
  * @param {reg u64[4]} f - input in 64-bit limb representation
  * @returns {reg u64[4]} - input incremented by 1 in 64-bit limb representation

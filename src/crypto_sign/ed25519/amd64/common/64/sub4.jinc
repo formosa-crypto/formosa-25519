@@ -119,6 +119,30 @@ inline fn __sub4_rrs(reg u64[4] f, stack u64[4] gs) -> reg u64[4]
 }
 
 /**
+ * function __sub4_sss
+ * @param {stack u64[4]} f - ptr to minuend in 64-bit limb representation
+ * @param {stack u64[4]} g - Subtrahend in 64-bit limb representation
+ * @returns {stack u64[4]} - Difference of f and g in 64-bit limb representation
+ * 
+ * This function subtracts g from f. Inputs are not consumed.
+ * The representation is:
+ * h = f - g
+ * h = (2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3) -
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3)
+*/
+inline fn __sub4_sss(stack u64[4] fs, stack u64[4] gs) -> stack u64[4]
+{
+  reg u64[4] f h;
+  stack u64[4] hs;
+
+  f = #copy(fs);
+  h = __sub4_rrs(f, gs);
+  hs = #copy(h);
+
+  return hs;
+}
+
+/**
  * function __sub4_rsr
  * @param {stack u64[4]} f - ptr to minuend in 64-bit limb representation
  * @param {reg u64[4]} g - Subtrahend in 64-bit limb representation

@@ -1,0 +1,97 @@
+require "sha512_api.jinc"
+
+export fn jade_sha512_init(reg u64 statep)-> reg u64
+{
+	reg u64 r;
+	inline int i;
+	
+	stack u64[25] state;
+  reg ptr u64[25] pstate;
+  reg u64 temp;
+  stack u64 stateps;
+  
+  stateps = statep;
+  
+  pstate = state;
+  pstate = sha512_init(pstate);
+  state = pstate;
+  
+  for i=0 to 25
+  {
+  	temp = state[i];
+  	[statep + 8*i] = temp;
+  }
+  
+  ?{}, r = #set0();
+  return r;
+}
+
+export fn jade_sha512_update(reg u64 statep mp msg_len)-> reg u64
+{
+	reg u64 r;
+	inline int i;
+	
+	stack u64[25] state;
+  reg ptr u64[25] pstate;
+  reg u64 temp;
+  stack u64 stateps;
+  
+	for i=0 to 25
+  {
+  	temp = [statep + 8*i];
+  	state[i] = temp;
+  }
+  
+  stateps = statep;
+  
+	pstate = state;
+  pstate = sha512_update_ext(pstate, mp, msg_len);
+  state = pstate;
+  
+  statep = stateps;
+  for i=0 to 25
+  {
+  	temp = state[i];
+  	[statep + 8*i] = temp;
+  }
+  
+  ?{}, r = #set0();
+  return r;
+}
+
+export fn jade_sha512_finalize(reg u64 statep outp)-> reg u64
+{
+	reg u64 r;
+	inline int i;
+	
+	stack u64[25] state;
+  reg ptr u64[25] pstate;
+  reg u64 temp;
+  stack u64 outps;
+  
+  stack u64[8] H;
+  reg u64[8] h;
+  reg ptr u64[8] Hreg;
+	
+	for i=0 to 25
+  {
+  	temp = [statep + 8*i];
+  	state[i] = temp;
+  }
+  
+	outps = outp;
+  Hreg = H;
+	pstate = state;
+	Hreg = sha512_finalize(pstate, Hreg);
+  H = Hreg;
+  h = #copy(H);
+  
+  outp = outps;
+  for i=0 to 8
+  {
+  	[outp + 8*i] = h[i];
+  }
+  
+  ?{}, r = #set0();
+  return r;
+}

@@ -1,0 +1,237 @@
+require "../common/load_store4.jinc"
+
+require "sha512_api.jinc"
+require "curve25519.jinc"
+require "sc25519_barrett.jinc"
+require "sc25519_add.jinc"
+require "sc25519_mul.jinc"
+
+/**
+ * function jade_ed25519_amd64_keygen
+ * @param {reg} skp - pointer to secret key result
+ * @param {reg} pkp - pointer to public key result
+ * @returns {reg} - Always return 0 to indicate success
+ * 
+ * This function samples a secret key sk and computes
+ * the corresponding public key pk.
+ * The secret key in skp is [sk, pk], the public key is [pk].
+*/
+#[sct="transient * transient -> public"]
+export fn jade_ed25519_amd64_keygen(reg u64 skp pkp) -> reg u64
+{
+  reg u64 r;
+  reg u64[4] h_red;
+  reg u64[4] pk sk;
+  reg u64[8] h;
+  stack u64[4] sks ks;
+  stack u64[8] H;
+  stack u64[25] state;
+  
+  () = #spill(skp, pkp);
+  
+  sks = #randombytes(sks);
+	sk = #copy(sks);
+  
+  () = #unspill(skp);
+  __store4(skp, sk);
+  
+	state = sha512_init(state);
+	
+  state = sha512_update_32(state, sk);
+  
+	H = sha512_finalize(state, H);
+	h = #copy(H);
+	
+  ks = __decode_scalar(h);
+  h_red = #copy(ks);
+  
+  pk = curve25519_mulx_base(h_red);
+  
+  () = #unspill(skp, pkp);
+  __store4(pkp, pk);
+  skp += 32;
+  __store4(skp, pk);
+  
+
+  ?{}, r = #set0();
+  return r;
+}
+
+/**
+ * function jade_ed25519_amd64_sign
+ * @param {reg} skp - pointer to secret key
+ * @param {reg} mp - pointer to message
+ * @param {reg} msg_len - length of the message
+ * @param {reg} sigp - pointer to signature result
+ * @returns {reg} - Always return 0 to indicate success
+ * 
+ * This function computes the signature (R,s) for the message m
+ * with length msg_len for the secret key sk.
+*/
+#[sct="transient * transient * transient * transient -> public"]
+export fn jade_ed25519_amd64_sign(reg u64 skp mp msg_len sigp) -> reg u64
+{
+  inline int i;
+  reg u64 r;
+  reg u64[4] sk pk;
+  reg u64[4] prefix;
+  reg u64[4] s h_red R;
+  reg u64[8] h;
+  stack u64[4] rs ks;
+  stack u64[8] H;
+  stack u64[25] state state_2;
+	
+	() = #spill(mp, msg_len, sigp, skp);
+	
+	state = sha512_init(state);
+	state_2 = sha512_init(state_2);
+	
+	sk = __load4(skp);
+	state = sha512_update_32(state, sk);
+  
+	H = sha512_finalize(state, H);
+	h = #copy(H);
+	
+  ks = __decode_scalar(h);
+  
+	
+	h = #copy(H);
+	for i=0 to 4{
+		prefix[i] = h[4+i];
+	}
+	
+	state = sha512_init(state);
+	state = sha512_update_32(state, prefix);
+  
+  () = #unspill(mp, msg_len);
+  state = sha512_update_ext(state, mp, msg_len);
+  
+	H = sha512_finalize(state, H);
+	h = #copy(H);
+  
+  h_red = sc25519_barrett(h);
+  rs = #copy(h_red);
+  R = curve25519_mulx_base(h_red);
+  
+  () = #unspill(sigp);
+  __store4(sigp, R);
+  state_2 = sha512_update_32(state_2, R);
+	
+	() = #unspill(skp);
+	skp += 32;
+	pk = __load4(skp);
+	state_2 = sha512_update_32(state_2, pk);
+	
+  () = #unspill(mp, msg_len);
+  state_2 = sha512_update_ext(state_2, mp, msg_len);
+  
+	H = sha512_finalize(state_2, H);
+	h = #copy(H);
+  
+  h_red = sc25519_barrett(h);
+	
+  s = sc25519_mul_rsr(ks, h_red);
+	s = sc25519_add_rrs(s, rs);
+	
+	() = #unspill(sigp);
+	sigp += 32;
+  __store4(sigp, s);
+  
+  ?{}, r = #set0();
+  return r;
+}
+
+/**
+ * function jade_ed25519_amd64_verify
+ * @param {reg} sigp - pointer to signature
+ * @param {reg} pkp - pointer to public key
+ * @param {reg} mp - pointer to message
+ * @param {reg} msg_len - length of the message
+ * @returns {reg} - Returns 0 for valid signature, else 1
+ * 
+ * This function validates the signature (R,s) for the message m
+ * with length msg_len for the public key pk.
+*/
+#[sct="transient * transient * transient * transient -> public"]
+export fn jade_ed25519_amd64_verify(reg u64 sigp pkp mp msg_len) -> reg u64
+{
+  reg u8 cmp_8;
+  reg u64 valid;
+  reg u64 vrfy_res temp_64;
+  reg u64[4] B R s A h_red;
+  reg u64[4] s_enc r_enc;
+  reg u64[8] h;
+  stack u64[4] Rs As Bs s_encs;
+  stack u64[8] H;
+  stack u64[12] sp;
+  stack u64[16] mG mGnP nP;
+  stack u64[25] state;
+  #msf reg u64 msf;
+  
+  inline int i;
+  
+  () = #spill(msg_len, mp, sigp);
+  
+  R = __load4(sigp);
+  Rs = #copy(R);
+  A = __load4(pkp);
+  As = #copy(A);
+  
+	state = sha512_init(state);
+	
+	R = #copy(Rs);
+  state = sha512_update_32(state, R);
+	
+	A = #copy(As);
+  state = sha512_update_32(state, A);
+  
+  () = #unspill(mp, msg_len);
+  state = sha512_update_ext(state, mp, msg_len);
+  
+	H = sha512_finalize(state, H);
+	h = #copy(H);
+  
+  h_red = sc25519_barrett(h);
+  for i=0 to 4{
+			temp_64 = As[i];
+			temp_64 = #BSWAP_64(temp_64);
+			A[3-i] = temp_64;
+  }
+  s_enc = curve25519_mulx(h_red, A);
+  for i=0 to 4{
+			temp_64 = s_enc[i];
+			temp_64 = #BSWAP_64(temp_64);
+			s_encs[3-i] = temp_64;
+  }
+  
+  () = #unspill(sigp);
+  sigp += 8*4;
+  s = __load4(sigp);
+  B = curve25519_mulx_base(s);
+  Bs = #copy(B);
+  
+  msf = #init_msf();
+  nP, valid, msf = _decode_point(nP, s_encs, msf);
+  for i=0 to 4{
+  	temp_64 = Rs[i];
+  	temp_64 = #BSWAP_64(temp_64);
+  	R[3-i] = temp_64;
+  }
+  Rs = #copy(R);
+  
+  mG, valid, msf = _decode_point(mG, Rs, msf);
+  _, mGnP = __add_and_double4(nP, mG);
+  
+  for i=0 to 12
+  { sp[i] = mGnP[i]; }
+  r_enc = _encode_point(sp);
+  
+  B = #copy(Bs);
+	cmp_8 = __cmp4_rr(r_enc, B);
+	temp_64 = (64u)cmp_8;
+	vrfy_res = temp_64;
+	vrfy_res &= 0x1;
+  
+  return vrfy_res;
+}
+
