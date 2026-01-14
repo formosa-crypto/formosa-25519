@@ -185,14 +185,10 @@ inline fn curve25519_mulx(reg u64[4] _k P) -> reg u64[4]
   stack u64[4] Ps;
   stack u64[16] pp;
 	
-	#msf reg u64 msf;
-	
-	msf = #init_msf();
-	
   k = #copy(_k);
   Ps = #copy(P);
   
-  pp, valid, msf = _decode_point(pp, Ps, msf);
+  pp, valid = _decode_point(pp, Ps);
   r = __curve25519_internal_mulx(pp, k);
 	
   return r;

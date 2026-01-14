@@ -23,30 +23,29 @@ u64[4] point26_y = {26,0,0,0};
  * It runs in variable time based on the input.
 */
 #[sct="transient * { ptr: public, val: { n: public, s:transient } } * msf -> transient * public * msf"]
-inline fn __ge25519_unpackneg_vartime(stack u64[16] rs, reg ptr u8[32] pp, #msf reg u64 msf) -> stack u64[16], reg u64, #msf reg u64
+inline fn __ge25519_unpackneg_vartime(stack u64[16] rs, reg ptr u8[32] pp, #[msf] reg u64 msf) -> stack u64[16], reg u64, #[msf] reg u64
 {
 	reg u8 cmp_8 par x_par;						// comparison result, parity, parity
-	reg u64 cmp_64 valid;							// comparison result, valid=1 for valid point 
+	reg u64 cmp_64 valid;							// comparison result, valid=1 for valid point
+	reg u64 mask;											// Mask
 	reg u64 x y;												// x and y coordinates
 	reg u256 v_256 valid_256;					// Memory transfer, mask for vector blending
 	reg u64[4] beta chk;								// square of root, check value
 	reg u64[4] _rx rx ry _ry rt;				// x,y,t coordinate in register
 	reg u64[4] num den den2 den4 den6; // Numerator and powers of the denominator
-	stack u8 pars;											// parity
-	stack u64 valids;									// valid
 	stack u64[4] nums dens den2s;			// Numerator and denominator
 	stack u64[4] xs;										// Spilled x coordinate
 	
 	reg bool cond;
 	inline int i;
-	#mmx reg u64 msf_s;
+	#[mmx] reg u64 msf_s;
 	
 	msf_s = #mov_msf(msf);
 
 	// Get parity
 	par = pp[31];
 	par = par >> 7;
-	pars = par;
+	() = #spill(par);
 	
 	// Set z coordinate to 1
 	v_256 = #VMOVDQA_256(_1);
@@ -72,7 +71,7 @@ inline fn __ge25519_unpackneg_vartime(stack u64[16] rs, reg ptr u8[32] pp, #msf 
 	
 	// valid = 1 if y < p
 	valid = (64u)cmp_8;
-	valids = valid;
+	() = #spill(valid);
 	
 	// num = y^2 - 1
 	// den = y^2*d + 1
@@ -119,7 +118,7 @@ inline fn __ge25519_unpackneg_vartime(stack u64[16] rs, reg ptr u8[32] pp, #msf 
 	// If cmp_8=1 do nothing, else multiply with sqrt(-1)
 	msf = #mov_msf(msf_s);
 	rx = #copy(xs);
-	#declassify cmp_8 = cmp_8;
+	() = #declassify(cmp_8);
 	cmp_8 = #protect_8(cmp_8, msf);
 	cond = (cmp_8 == 0);
 	if (cond){
@@ -146,7 +145,8 @@ inline fn __ge25519_unpackneg_vartime(stack u64[16] rs, reg ptr u8[32] pp, #msf 
 	chk = __freeze4_rr(chk);
 	cmp_8 = __cmp4_rr(chk, num);
 	cmp_64 = (64u)cmp_8;
-	valids &= cmp_64;
+	() = #unspill(valid);
+	valid &= cmp_64;
 	
 	// 5. Choose the desired square root according to parity:
   
@@ -159,7 +159,9 @@ inline fn __ge25519_unpackneg_vartime(stack u64[16] rs, reg ptr u8[32] pp, #msf 
  	// If parity matches original parity, negate to unpack negative point
  	// Else do nothing
  	msf = #mov_msf(msf_s);
- 	#declassify cmp_8 = x_par ^ pars;
+ 	() = #unspill(par);
+ 	cmp_8 = x_par ^ par;
+ 	() = #declassify(cmp_8);
 	cmp_8 = #protect_8(cmp_8, msf);
 	cond = (cmp_8 == 0);
  	if (cond){
@@ -180,22 +182,21 @@ inline fn __ge25519_unpackneg_vartime(stack u64[16] rs, reg ptr u8[32] pp, #msf 
 	msf = #mov_msf(msf_s);
 	for i=0 to 4
 	{
-		#declassify x = rx[i];
+		x = rx[i];
+		() = #declassify(x);
 		rs[i] = x;
-		?{}, _rx[i] = #set0();
 	}
 	
-	cmp_8 = __cmp4_rr(rx, _rx);
-	par = pars;
-	valid = valids;
+	cmp_8 = __cmp4_z(rx);
 	cmp_8 &= par; // 1 if x=0 and par=1 (negative)
 	cmp_64 = (64u)cmp_8;
-	#declassify valid = !cmp_64 & valid; // Still valid if valid before and cmp_8=0
-	valids = valid;
+	valid = !cmp_64 & valid; // Still valid if valid before and cmp_8=0
+	() = #declassify(valid);
+	() = #spill(valid);
 	
 	// Build mask to return arbitrary point_26 for invalid input
-	valid =-valid;
-	valid_256 = (256u)#VMOV_64(valid);
+	mask =-valid;
+	valid_256 = (256u)#VMOV_64(mask);
 	valid_256 = #VPBROADCAST_32u8(valid_256);
 	v_256 = point26_x[:u256 0];
 	v_256 = #BLENDV_32u8(v_256, rs[:u256 0], valid_256);
@@ -217,10 +218,12 @@ inline fn __ge25519_unpackneg_vartime(stack u64[16] rs, reg ptr u8[32] pp, #msf 
 	
 	for i=0 to 4
 	{
-		#declassify rs[12+i] = rt[i];
+		rs[12+i] = rt[i];
 	}
+	() = #declassify(rs);
 	
-	#declassify valid = valids;
+	() = #unspill(valid);
+	() = #declassify(valid);
 	valid = #protect(valid, msf);
 	
 	return rs, valid, msf;

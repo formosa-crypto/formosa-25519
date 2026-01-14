@@ -48,10 +48,10 @@ inline fn sha512_init(stack u64[25] pstate) -> stack u64[25]
  * This function can be applied, if exactly 32-bytes are in the pstate buffer.
 */
 #[sct="{ ptr: public, val: { n: secret, s:secret } } * public * secret * msf -> { ptr: public, val: { n: secret, s:secret } } * msf"]
-fn sha512_update_ext_32(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen, #msf reg u64 msf) -> reg ptr u64[25], #msf reg u64
+fn sha512_update_ext_32(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen, #[msf] reg u64 msf) -> reg ptr u64[25], #[msf] reg u64
 {
   reg u64 iterations total_len;
-  #spill_to_mmx reg u64 j;
+  #[spill_to_mmx] reg u64 j;
   reg u64[8] H_r;
   reg u256[4] m_buf dig_buf;
   reg u256[1] m_shift;
@@ -86,7 +86,8 @@ fn sha512_update_ext_32(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen, #msf r
   iterations = inlen + 32;
   iterations = iterations >> 7;
 
-  #declassify j = iterations;
+  j = iterations;
+  () = #declassify(j);
   j = #protect(j, msf);
   zf = (j == 0);
   
@@ -150,10 +151,10 @@ fn sha512_update_ext_32(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen, #msf r
  * This function can be applied, if exactly 64-bytes are in the pstate buffer.
 */
 #[sct="{ ptr: public, val: { n: secret, s:secret } } * public * secret * msf -> { ptr: public, val: { n: secret, s:secret } } * msf"]
-fn sha512_update_ext_64(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen, #msf reg u64 msf) -> reg ptr u64[25], #msf reg u64
+fn sha512_update_ext_64(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen, #[msf] reg u64 msf) -> reg ptr u64[25], #[msf] reg u64
 {
   reg u64 iterations total_len;
-  #spill_to_mmx reg u64 j;
+  #[spill_to_mmx] reg u64 j;
   reg u64[8] H_r;
   reg u256[4] m_buf dig_buf;
   reg u256[2] m_shift;
@@ -188,7 +189,8 @@ fn sha512_update_ext_64(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen, #msf r
   iterations = inlen + 64;
   iterations = iterations >> 7;
 
-  #declassify j = iterations;
+  j = iterations;
+  () = #declassify(j);
   j = #protect(j, msf);
   zf = (j == 0);
   
@@ -256,7 +258,7 @@ fn sha512_update_ext_64(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen, #msf r
  * the current state H (pstate 16-24) with
  * the remaining bytes (pstate 0-16)
 */
-fn sha512_finalize(reg ptr u64[25] pstate, #msf reg u64 msf) -> reg u64[8], #msf reg u64
+fn sha512_finalize(reg ptr u64[25] pstate, #[msf] reg u64 msf) -> reg u64[8], #[msf] reg u64
 {
   reg u64 len mod_len nblocks temp;
   reg u128 bswap_128 v_128;

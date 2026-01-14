@@ -17,14 +17,14 @@ require "ge25519_pack.jinc"
  * and a scalar n, that is multiplied with the public key P. The result is 
  * packed and written to Q. It runs in variable time.
 */
-fn mGnP(reg ptr u64[4] Q, reg u64[4] m, reg u64[4] n, reg ptr u8[32] P, #msf reg u64 msf) -> reg ptr u64[4], reg u64, #msf reg u64
+fn mGnP(reg ptr u64[4] Q, reg u64[4] m, reg u64[4] n, reg ptr u8[32] P, #[msf] reg u64 msf) -> reg ptr u64[4], reg u64, #[msf] reg u64
 {
 	reg u64 valid z;							// Signature valid, constant zero
 	stack u64[4] m_s m_red n_s; 	// Spilled scalars
 	stack u64[12] r;							// Result point
 	stack u64[16] ps;						// Unpacked point
 	reg u256 v_256;							// AVX2 register for store/load
-	#mmx reg ptr u64[4] Qs;			// Spilled Q result pointer
+	#[mmx] reg ptr u64[4] Qs;			// Spilled Q result pointer
 	reg bool neq;
 	
 	Qs = Q;
@@ -36,7 +36,7 @@ fn mGnP(reg ptr u64[4] Q, reg u64[4] m, reg u64[4] n, reg ptr u8[32] P, #msf reg
 	m_red = #copy(m);
 	
 	// Unpack the input public key to extended coordinates
-	#declassify ps = ps;
+	() = #declassify(ps);
 	ps, valid, msf = __ge25519_unpackneg_vartime(ps, P, msf);
 	
 	// If m was larger than L (m != reduced m), signature is invalid
@@ -46,15 +46,17 @@ fn mGnP(reg ptr u64[4] Q, reg u64[4] m, reg u64[4] n, reg ptr u8[32] P, #msf reg
 	() = #spill(valid);
 	
 	// Compute the result R and pack it
-	#declassify n = #copy(n_s);
-	#declassify m = #copy(m_red);
+	() = #declassify(n_s);
+	() = #declassify(m_red);
+	n = #copy(n_s);
+	m = #copy(m_red);
 	r, msf = __ge25519_double_scalarmult_vartime(ps, n, m, msf);
   v_256, msf = ge25519_pack(r, msf);
   
   // Store the packed point R
   Q = Qs;
   () = #unspill(valid);
-  #declassify v_256 = v_256;
+  () = #declassify(v_256);
   Q[:u256 0] = #VMOVDQA_256(v_256);
   
   return Q, valid, msf;

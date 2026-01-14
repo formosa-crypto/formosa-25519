@@ -9,14 +9,13 @@ require "fe25519_pack.jinc"
  * This functions invert the number f modulo the prime p.
  * It runs in constant time and input independent access pattern.
 */
-inline fn __invert4(reg u64[4] f, #msf reg u64 msf) -> reg u64[4], #msf reg u64
+inline fn __invert4(reg u64[4] f, #[msf] reg u64 msf) -> reg u64[4], #[msf] reg u64
 {
   reg u64[4] h;
 
   // Reduce below p
   f = __fe25519_pack(f);
   // Invert number
-  #update_after_call
   h, msf = __crypto_pow(f, msf);
 
   return h, msf;

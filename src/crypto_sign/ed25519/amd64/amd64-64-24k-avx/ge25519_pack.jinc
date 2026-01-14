@@ -12,7 +12,7 @@ require "fe25519_freeze.jinc"
  * 
  * This function packs the input point p into a 256-bit representation.
 */
-inline fn ge25519_pack(stack u64[12] pp, #msf reg u64 msf) -> reg u256, #msf reg u64
+inline fn ge25519_pack(stack u64[12] pp, #[msf] reg u64 msf) -> reg u256, #[msf] reg u64
 {
 	reg u8 par;						// parity
 	reg u256 res;					// result
@@ -20,7 +20,7 @@ inline fn ge25519_pack(stack u64[12] pp, #msf reg u64 msf) -> reg u256, #msf reg
 	stack u64[4] rxs rzs;	// coordinates (stack)
 	stack u8[32] rs;				// Result
 	inline int i;
-	#mmx reg u64 msf_s;
+	#[mmx] reg u64 msf_s;
 	
 	// Invert z coordinate
 	for i=0 to 4

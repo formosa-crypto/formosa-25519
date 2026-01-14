@@ -1,4 +1,38 @@
 /**
+ * function __cmp4_z
+ * @param {reg u64[4]} a - First comparison input
+ * @returns {reg u8} - 1 if a==0 else 0
+ * 
+ * This functions compares the multi-limb input a with 0 in constant time.
+ * It returns 1 if a=0 and otherwise 0. The a is unchanged.
+*/
+inline fn __cmp4_z(reg u64[4] a) -> reg u8
+{
+	reg u8 res_8;           // Output
+	reg u64 acc res z;            // Constant zero
+	reg bool zf;          // Zero flag
+	inline int i;
+	
+	// Set result to 1 if all a[i]=b[i]
+	res = 1;
+	// Set 0 register
+	?{}, acc = #set0();
+	?{}, z = #set0();
+	for i = 0 to 4
+	{
+	  // XOR b[i] and c[i] to get zf=1 on equality
+	  ?{ ZF = zf }, acc = #OR_64(acc, a[i]);
+	}
+	
+	// If zf=0 -> b[i] != c[i], set result to 0
+        res = #CMOVcc(!zf, z, res);
+	// Set to desired output size
+	res_8 = (8u)res;
+	
+	return res_8;
+}
+
+/**
  * function __cmp4_rr
  * @param {reg u64[4]} a - First comparison input
  * @param {reg u64[4]} a - Second comparison input

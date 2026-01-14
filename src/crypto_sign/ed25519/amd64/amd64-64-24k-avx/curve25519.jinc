@@ -15,14 +15,14 @@ require "sc25519_from32bytes.jinc"
  * This function computes the k-multiple of the basepoint G and
  * outputs the result in compressed representation.
 */
-fn _curve25519_mulx_base(reg u64[4] _k, #msf reg u64 msf) -> reg u64[4], #msf reg u64
+fn _curve25519_mulx_base(reg u64[4] _k, #[msf] reg u64 msf) -> reg u64[4], #[msf] reg u64
 {
 	reg u64 par;
 	reg u64[4] r;
 	reg u64[4] rx ry rz;
 	stack u64[4] rxs rys rzs;
 	stack u64[16] ger;
-	#mmx reg u64 msf_s;
+	#[mmx] reg u64 msf_s;
 	
   // Reduce _k below curve order L
   _k = sc25519_from32bytes(_k);

@@ -23,6 +23,7 @@ inline fn __dlb4_rr(reg u64[4] f) -> reg u64[4]
   for i=1 to 4
   { cf, f[i] += f[i] + cf; }
   
+  // Reduce
   _, z -= z - cf;
   z &= 38;
   

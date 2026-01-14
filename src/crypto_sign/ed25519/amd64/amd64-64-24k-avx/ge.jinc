@@ -16,9 +16,9 @@ require "reduce5.jinc"
  * outputs the result in extended coordinates. Every coordinate has
  * a size of 256 bit (4*u64).
 */
-inline fn __ge25519_scalarmult_base(stack u64[16] r, reg u64[4] s, #msf reg u64 msf) -> stack u64[16], #msf reg u64
+inline fn __ge25519_scalarmult_base(stack u64[16] r, reg u64[4] s, #[msf] reg u64 msf) -> stack u64[16], #[msf] reg u64
 {
-  #spill_to_mmx
+  #[spill_to_mmx]
   reg u64 i;						// Loop iterator
   reg u64 b_arg pos_arg; // Current window & position
   reg u64[4] rx ry rz;	// Coordinates x,y,z in registers
@@ -27,7 +27,7 @@ inline fn __ge25519_scalarmult_base(stack u64[16] r, reg u64[4] s, #msf reg u64 
   stack u64[19] rs;		// Result with 5-limb coordinates
 	reg bool cond;				// Loop condition
 	inline int j;				
-	#mmx reg u64 msf_s;
+	#[mmx] reg u64 msf_s;
 	
 	// Mov msf to MMX register while doing branch-less computations
 	msf_s = #mov_msf(msf);

@@ -66,7 +66,7 @@ inline fn __bswap(reg u64 a) -> reg u64 {
  * To avoid moving all state variables (a,b,c,d,e,f,g,h) -> (b,c,d,e,f,g,h,a),
  * we unroll eight rounds so that variables are stationary.
 */
-inline fn __inner_sha(reg u64[8] H_r, reg u256[4] m, #msf reg u64 msf) -> reg u64[8], #msf reg u64
+inline fn __inner_sha(reg u64[8] H_r, reg u256[4] m, #[msf] reg u64 msf) -> reg u64[8], #[msf] reg u64
 {
 	reg u64 a b c d e f g h;
 	reg u64 j;
@@ -86,7 +86,7 @@ inline fn __inner_sha(reg u64[8] H_r, reg u256[4] m, #msf reg u64 msf) -> reg u6
 	reg ptr u256[4] kp4;
 	reg ptr u64[80] Kp;
 	reg bool cond;
-	#mmx reg u64 msf_s;
+	#[mmx] reg u64 msf_s;
 	
 	// Load state
 	a = H_r[0];
@@ -1208,9 +1208,9 @@ inline fn __inner_sha(reg u64[8] H_r, reg u256[4] m, #msf reg u64 msf) -> reg u6
  * 
  * This functions computes the SHA-512 for the current state H and the padded blocks sblocks.
 */
-inline fn _blocks_1_ref(reg u64[8] H_r, stack u64[32] sblocks, reg u64 nblocks, #msf reg u64 msf) -> reg u64[8], #msf reg u64
+inline fn _blocks_1_ref(reg u64[8] H_r, stack u64[32] sblocks, reg u64 nblocks, #[msf] reg u64 msf) -> reg u64[8], #[msf] reg u64
 {
-  #spill_to_mmx reg u64 i;
+  #[spill_to_mmx] reg u64 i;
   reg u256 v_256;
   reg u256[4] m_buf;
   reg bool cond;
@@ -1218,7 +1218,8 @@ inline fn _blocks_1_ref(reg u64[8] H_r, stack u64[32] sblocks, reg u64 nblocks, 
   
   
   // Protect and load the number of blocks
-  #declassify i = nblocks;
+  i = nblocks;
+  () = #declassify(i);
   i = #protect(i, msf);
   
   // Iterate once or twice (depending on the padding)
@@ -1263,7 +1264,7 @@ inline fn _blocks_1_ref(reg u64[8] H_r, stack u64[32] sblocks, reg u64 nblocks, 
  * This functions computes the padding blocks of SHA512.
 */
 #[sct="{ n: secret, s:secret } * secret * secret * msf -> { n: secret, s:secret } * secret * msf"]
-inline fn __lastblocks_ref(stack u8[128] in, reg u64 inlen bits, #msf reg u64 msf) -> stack u64[32], reg u64, #msf reg u64
+inline fn __lastblocks_ref(stack u8[128] in, reg u64 inlen bits, #[msf] reg u64 msf) -> stack u64[32], reg u64, #[msf] reg u64
 {
   reg u64 nblocks nblocks2 v_64;
   reg u256 cmp_eq cmp_lt inlen_256 v_256 z_256;

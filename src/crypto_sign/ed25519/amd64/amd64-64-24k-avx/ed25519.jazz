@@ -30,7 +30,7 @@ export fn jade_ed25519_amd64_keygen(reg u64 skp pkp) -> reg u64
   stack u64[4] ks;      // Secret scalar
   stack u64[25] state;  // SHA-512 iterative state
   stack u256[1] sks;    // Secret scalar (stack)
-  #msf reg u64 msf;
+  #[msf] reg u64 msf;
   
   // Move pointers to avoid register allocation problems
   () = #spill(pkp);
@@ -58,7 +58,6 @@ export fn jade_ed25519_amd64_keygen(reg u64 skp pkp) -> reg u64
 	state[24] = 32;
   
   // Compute the hash of the secret key
-	#update_after_call
 	h, msf = sha512_finalize(state, msf);
 	
 	// Ed25519 secret scalar clamping
@@ -66,7 +65,6 @@ export fn jade_ed25519_amd64_keygen(reg u64 skp pkp) -> reg u64
   h_red = #copy(ks);
   
   // Compute public key k*G
-  #update_after_call
   pk, msf = _curve25519_mulx_base(h_red, msf);
   
   // Store public key in public and secret key
@@ -101,7 +99,7 @@ export fn jade_ed25519_amd64_pubkey(reg u64 skp pkp) -> reg u64
 	reg u256 v_256;       // AVX2 register for load/stores
 	stack u64[4] ks;      // Secret scalar
   stack u64[25] state;  // SHA-512 iterative state
-	#msf reg u64 msf;
+	#[msf] reg u64 msf;
 	
 	// Initialize MSF to prevent cache leakage
 	msf = #init_msf();
@@ -117,7 +115,6 @@ export fn jade_ed25519_amd64_pubkey(reg u64 skp pkp) -> reg u64
 	state[24] = 32;
   
   // Compute the hash of the secret scalar
-	#update_after_call
 	h, msf = sha512_finalize(state, msf);
 	
 	// Ed25519 secret scalar clamping
@@ -125,7 +122,6 @@ export fn jade_ed25519_amd64_pubkey(reg u64 skp pkp) -> reg u64
   h_red = #copy(ks);
   
   // Compute public key k*G
-  #update_after_call
   pk, msf = _curve25519_mulx_base(h_red, msf);
   
   // Store public key
@@ -160,8 +156,8 @@ export fn jade_ed25519_amd64_sign(reg u64 skp mp msg_len sigp) -> reg u64
   stack u64 mps;      // Message pointer (spilled)
   stack u64[4] rs ks; // ephemeral r, secret scalar
   stack u64[25] state state_2;  // SHA-512 iterative states
-	#msf reg u64 msf;
-	#mmx reg u64 msf_s;
+	#[msf] reg u64 msf;
+	#[mmx] reg u64 msf_s;
 	
 	// Initialize MSF to prevent cache leakage
 	msf = #init_msf();
@@ -183,7 +179,6 @@ export fn jade_ed25519_amd64_sign(reg u64 skp mp msg_len sigp) -> reg u64
 	state_2[:u256 1] = #VMOVDQA_256(v_256);
   
   // Hash the secret key
-	#update_after_call
 	h, msf = sha512_finalize(state, msf);
 	
 	// Initialize SHA state
@@ -203,12 +198,10 @@ export fn jade_ed25519_amd64_sign(reg u64 skp mp msg_len sigp) -> reg u64
   () = #unspill(msg_len);
   mp = mps;
   mp = #protect(mp, msf);
-	#update_after_call
   state, msf = sha512_update_ext_32(state, mp, msg_len, msf);
   () = #spill(mp);
   
   // Obtain the ephemeral scalar r
-	#update_after_call
 	h, msf = sha512_finalize(state, msf);
   
   // Reduce to curve order and compute commitment R
@@ -216,7 +209,6 @@ export fn jade_ed25519_amd64_sign(reg u64 skp mp msg_len sigp) -> reg u64
   h_red = sc25519_barrett(h);
   rs = #copy(h_red);
   msf = #mov_msf(msf_s);
-  #update_after_call
   R, msf = _curve25519_mulx_base(h_red, msf);
   
   // Store R in the signature
@@ -238,9 +230,7 @@ export fn jade_ed25519_amd64_sign(reg u64 skp mp msg_len sigp) -> reg u64
   () = #unspill(msg_len);
   mp = mps;
   mp = #protect(mp, msf);
-	#update_after_call
   state_2, msf = sha512_update_ext_64(state_2, mp, msg_len, msf);
-	#update_after_call
 	h, msf = sha512_finalize(state_2, msf);
 	
 	// Reduce to curve order
@@ -286,16 +276,18 @@ export fn jade_ed25519_amd64_verify(reg u64 sigp pkp mp msg_len) -> reg u64
   reg bool neq;
   inline int i;
   
-  #msf reg u64 msf;
-  #mmx reg u64 msf_s;
+  #[msf] reg u64 msf;
+  #[mmx] reg u64 msf_s;
   
   // Initialize MSF to prevent cache leakage
   msf = #init_msf();
   () = #spill(msg_len, mp, sigp);
   
   // Load public key and commitment
-  #declassify A_256 = [:u256 pkp];
-  #declassify R_256 = [:u256 sigp];
+  A_256 = [:u256 pkp];
+  R_256 = [:u256 sigp];
+  () = #declassify(A_256);
+  () = #declassify(R_256);
   
   A[:u256 0] = A_256;
   R[:u256 0] = R_256;
@@ -311,32 +303,31 @@ export fn jade_ed25519_amd64_verify(reg u64 sigp pkp mp msg_len) -> reg u64
 	// Hash m to compute H(R,A,m)
   () = #unspill(msg_len, mp);
   mp = #protect(mp, msf);
-  #update_after_call
   state, msf = sha512_update_ext_64(state, mp, msg_len, msf);
 	
-	#update_after_call
 	h, msf = sha512_finalize(state, msf);
   msf_s = #mov_msf(msf);
   
   // Reduce H(R,A,m) below L
-	#declassify n = sc25519_barrett(h);
+	n = sc25519_barrett(h);
 	
   // Load the scalar s
   () = #unspill(sigp);
   sigp = #protect(sigp, msf);
   for i=0 to 4
 	{
-		#declassify s[i] = [sigp + 32 + 8*i];
+		s[i] = [sigp + 32 + 8*i];
 	}
 	
 	// Declassify public values for the sct checker
-	#declassify R_check = R_check;
-	#declassify s = #copy(s);
-	#declassify A = A;
+	() = #declassify(A);
+	for i=0 to 4 {
+		() = #declassify(n[i]);
+		() = #declassify(s[i]);
+	}
 	
 	// Compute s*G - H(R,A,m)*A
 	// Check validity of the signature (point on curve, in range...)
-	#update_after_call
 	R_check, valid, msf = mGnP(R_check, s, n, A, msf);
   
   // Compare provided R against computed R
@@ -346,7 +337,8 @@ export fn jade_ed25519_amd64_verify(reg u64 sigp pkp mp msg_len) -> reg u64
 	valid = #CMOVcc(!neq, valid, z);
 	
 	// Invert result (valid signature returns 0)
-	#declassify vrfy_res = valid - 1;
+	vrfy_res = valid - 1;
+	() = #declassify(vrfy_res);
 	vrfy_res = #protect(vrfy_res, msf);
 	
   return vrfy_res;

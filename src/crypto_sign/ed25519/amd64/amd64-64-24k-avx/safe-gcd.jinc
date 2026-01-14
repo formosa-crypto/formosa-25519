@@ -100,7 +100,7 @@ inline fn divstep(reg u64 grs fuv m z) -> reg u64, reg u64, reg u64
 	return grs, fuv, m;
 }
 
-fn __crypto_pow(reg u64[4] x, #msf reg u64 msf) -> reg u64 [4], #msf reg u64
+fn __crypto_pow(reg u64[4] x, #[msf] reg u64 msf) -> reg u64 [4], #[msf] reg u64
 {
 	reg u64 f f0 g g0 h i m m1 mnew r s u v z;
 	reg u64 fuv grs oldg;
@@ -122,7 +122,7 @@ fn __crypto_pow(reg u64[4] x, #msf reg u64 msf) -> reg u64 [4], #msf reg u64
 	stack u256[9] stack_FVGS;
 	reg bool cf e l cond;
 	inline int j;
-	#mmx reg u64 msf_s;
+	#[mmx] reg u64 msf_s;
 	
 	msf_s = #mov_msf(msf);
 	

@@ -8,8 +8,7 @@
  * This functions computes a swindowsize-bit sliding window representation of the 256-bit scalar s.
  * Each window is signed to make use of NAF.
 */
-#[sct="transient * { ptr: public, val: { n: public, s: transient } } * public * msf -> { ptr: public, val: { n: public, s: transient } } * msf"]
-fn sc25519_slide(reg u64[4] s, reg ptr u8[256] r, reg u64 swindowsize, #msf reg u64 msf) -> reg ptr u8[256], #msf reg u64
+fn sc25519_slide(reg u64[4] s, reg ptr u8[256] r, reg u64 swindowsize, #[msf] reg u64 msf) -> reg ptr u8[256], #[msf] reg u64
 {
   reg u16 c_2;  // Always 2+current bit, determines the state on window end
   reg u16 inv_val; // 1 if in state 3 and current bit = 0

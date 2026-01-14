@@ -38,13 +38,13 @@ param int S2_SWINDOWSIZE = 7;
  * curve order L. The output is in projective coordinates(x,y,z).
 */
 #[sct="transient * transient * transient * msf -> transient * msf"]
-inline fn __ge25519_double_scalarmult_vartime(stack u64[16] p1, reg u64[4] n m, #msf reg u64 msf) -> stack u64[12], #msf reg u64
+inline fn __ge25519_double_scalarmult_vartime(stack u64[16] p1, reg u64[4] n m, #[msf] reg u64 msf) -> stack u64[12], #[msf] reg u64
 {
 	reg u8 slide_8;									// current window
 	reg u64 slide_64;								// current window(extended)
 	reg u64 j k;											// loop iterators
 	reg u64 windowsize;							// Sliding window window size
-	#mmx reg u64 ks;									// loop iterator (splilled)
+	#[mmx] reg u64 ks;									// loop iterator (splilled)
 	reg u64[4] t2d;									// Point coordinate
 	reg u256 v_256;									// Memory reads/writes
 	stack u8[256] n_slide m_slide;		// Sliding windows
@@ -60,7 +60,7 @@ inline fn __ge25519_double_scalarmult_vartime(stack u64[16] p1, reg u64[4] n m, 
 	reg ptr u64[384] pre2p;					// Base point multiples
 	reg bool cond;
 	inline int i;
-	#mmx reg u64 msf_s;
+	#[mmx] reg u64 msf_s;
 	
 	/***************************
 	*	Compute sliding windows	*
@@ -70,9 +70,8 @@ inline fn __ge25519_double_scalarmult_vartime(stack u64[16] p1, reg u64[4] n m, 
 	// Compute sliding windows for n
 	// Set window size for Public-key scalar
 	windowsize = S1_SWINDOWSIZE - 1;
-	#declassify np = n_slide;
+	np = n_slide;
 	// Compute windows
-	#update_after_call
 	np, msf = sc25519_slide(n, np, windowsize, msf);
 	n_slide = np;
 	
@@ -80,9 +79,8 @@ inline fn __ge25519_double_scalarmult_vartime(stack u64[16] p1, reg u64[4] n m, 
 	m = #copy(ms);
 	// Set window size for Base-point scalar
 	windowsize = S2_SWINDOWSIZE - 1;
-	#declassify mp = m_slide;
+	mp = m_slide;
 	// Compute windows
-	#update_after_call
 	mp, msf = sc25519_slide(m, mp, windowsize, msf);
 	m_slide = mp;
 	
@@ -138,8 +136,8 @@ inline fn __ge25519_double_scalarmult_vartime(stack u64[16] p1, reg u64[4] n m, 
 	k = j;
 	
 	// We will leak the windows
-	#declassify m_slide = m_slide;
-	#declassify n_slide = n_slide;
+	() = #declassify(m_slide);
+	() = #declassify(n_slide);
 	
 	// Iterate over windows until non-zero window is found
 	while{cond = (j >=s 0);}(cond){
@@ -298,7 +296,7 @@ inline fn __ge25519_double_scalarmult_vartime(stack u64[16] p1, reg u64[4] n m, 
 		v_256 = #VMOVDQA_256(rs[:u256 i]);
 		r[:u256 i] = #VMOVDQA_256(v_256);
 	}
-	#declassify r = r;
+	() = #declassify(r);
 	
 	return r, msf;
 }

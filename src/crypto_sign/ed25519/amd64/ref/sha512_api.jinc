@@ -33,111 +33,47 @@ fn sha512_init(reg ptr u64[25] pstate) -> reg ptr u64[25]
 
 fn sha512_update_32(reg ptr u64[25] pstate, reg u64[4] m) -> reg ptr u64[25]
 {
-  reg u64 mod_len limb_1_size c_block;
-  reg u64 temp aux mask;
-  stack u64[4] m_s;
-  stack u64 c_block_s;
+  reg u64 mod_len i total_len;
+  stack u8[32] m_s;
 
-  m = #copy(m);
-  
   // Update len	
-  temp = pstate[24];
-  mod_len = temp;
-  temp += 32;
-  pstate[24] = temp;
+  total_len = pstate[24];
+  mod_len = total_len;
+  total_len += 32;
+  pstate[24] = total_len;
 
   mod_len = mod_len & 0x7f;
 
-  limb_1_size = 0x7;
-  limb_1_size = limb_1_size & mod_len;
-  limb_1_size = limb_1_size << 3;
-  limb_1_size = limb_1_size;
-  c_block = mod_len >> 3;
-
-  mask = 0x0000000000000001;
-  _, _, _, _, _, mask = #SHL(mask, limb_1_size);
-  mask -= 1;
-
-  _, _, m[0] = #ROL(m[0], limb_1_size);
-  temp = m[0];
-  m[0] = m[0] & mask;
-  mask = !mask;
-  temp = temp & mask;
-
-  aux = pstate[(int) c_block];
-  aux = aux | temp;
-  pstate[(int) c_block] = aux;
-
-  _, _, m[1] = #ROL(m[1], limb_1_size);
-  temp = m[1];
-  temp = temp & mask;
-  mask = !mask;
-  m[1] = m[1] & mask;
-
-  m[0] = m[0] | temp;
-
-  _, _, m[2] = #ROL(m[2], limb_1_size);
-  temp = m[2];
-  m[2] = m[2] & mask;
-  mask = !mask;
-  temp = temp & mask;
-  m[1] = m[1] | temp;
-
-  _, _, m[3] = #ROL(m[3], limb_1_size);
-  temp = m[3];
-  temp = temp & mask;
-  mask = !mask;
-  m[3] = m[3] & mask;
-  m[2] = m[2] | temp;
-
-  c_block += 1;
-  c_block = c_block & 0xf;
-  c_block_s = c_block;
   m_s = #copy(m);
-
-  if (c_block == 0) {
+  
+  if (mod_len > 128 - 32 - 1) {
+  
+    while (mod_len < 128) {
+      pstate[:u8 mod_len] = m_s[:u8 i];
+      mod_len += 1;
+      i += 1;
+    }
+    
+    () = #spill(i);
+    
     pstate = _blocks_0_ref(pstate);
+    mod_len = 0;
+    
+    () = #unspill(i);
+    
+    while (i < 32) {
+      pstate[:u8 mod_len] = m_s[:u8 i];
+      mod_len += 1;
+      i += 1;
+    }
   }
-
-  m[0] = m_s[0];
-  c_block = c_block_s;
-  pstate[(int) c_block] = m[0];
-
-  c_block += 1;
-  c_block = c_block & 0xf;
-  c_block_s = c_block;
-
-  if (c_block == 0) {
-    pstate = _blocks_0_ref(pstate);
+  else {
+    while (i < 32) {
+      pstate[:u8 mod_len] = m_s[:u8 i];
+      mod_len += 1;
+      i += 1;
+    }
   }
-
-  m[1] = m_s[1];
-  c_block = c_block_s;
-  pstate[(int) c_block] = m[1];
-
-  c_block += 1;
-  c_block = c_block & 0xf;
-  c_block_s = c_block;
-
-  if (c_block == 0) {
-    pstate = _blocks_0_ref(pstate);
-  }
-
-  m[2] = m_s[2];
-  c_block = c_block_s;
-  pstate[(int) c_block] = m[2];
-
-  c_block += 1;
-  c_block = c_block & 0xf;
-  c_block_s = c_block;
-
-  if (c_block == 0) {
-    pstate = _blocks_0_ref(pstate);
-  }
-
-  m[3] = m_s[3];
-  c_block = c_block_s;
-  pstate[(int) c_block] = m[3];
 
   return pstate;
 }
@@ -145,9 +81,8 @@ fn sha512_update_32(reg ptr u64[25] pstate, reg u64[4] m) -> reg ptr u64[25]
 fn sha512_update_ext(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen) -> reg ptr u64[25]
 {
   reg u64 mod_len total_len iterations;
-  reg u64 i j;	
+  reg u64 j;	
 
-  inlen = inlen;
   // Update len
   total_len = pstate[24];
   mod_len = total_len;
@@ -159,35 +94,30 @@ fn sha512_update_ext(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen) -> reg pt
   iterations = iterations + inlen;
   iterations = iterations >> 7;
   
-  if (iterations != 0) { inlen = inlen & 0x7f; }
-  () = #spill(inlen);
-  
-  i = 0;
   j = iterations;
 
   while (j != 0) {
-    () = #spill(m);
     while (mod_len < 128) {
-      pstate[:u8 mod_len] = [:u8 m + i];
+      pstate[:u8 mod_len] = [:u8 m];
       mod_len += 1;
-      i += 1;
+      m += 1;
+      inlen -= 1;
     }
     
-    () = #spill(i, j, mod_len);
+    () = #spill(m, mod_len, inlen, j);
 
     pstate = _blocks_0_ref(pstate);
     
-    () = #unspill(i,j, mod_len);
+    () = #unspill(m, mod_len, inlen, j);
     mod_len = 0;
     j -= 1;
   }
 
-  () = #unspill(inlen);
   
   while (inlen > 0) {
-    pstate[:u8 mod_len] = [:u8 m + i];
+    pstate[:u8 mod_len] = [:u8 m];
     mod_len += 1;
-    i += 1;
+    m += 1;
     inlen -= 1;
   }
   return pstate;
