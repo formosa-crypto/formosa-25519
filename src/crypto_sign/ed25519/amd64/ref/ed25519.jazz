@@ -1,9 +1,12 @@
 require "../common/load_store4.jinc"
+require "../common/decode_scalar.jinc"
 
 require "sha512_api.jinc"
 require "curve25519.jinc"
+require "decode_point.jinc"
 require "sc25519_barrett.jinc"
 require "sc25519_add.jinc"
+require "sc25519_from32bytes.jinc"
 require "sc25519_mul.jinc"
 
 /**
@@ -159,7 +162,7 @@ export fn jade_ed25519_amd64_verify(reg u64 sigp pkp mp msg_len) -> reg u64
 {
   reg u64 valid valid_R z;
   reg u64 vrfy_res;
-  reg u64[4] B R s A;
+  reg u64[4] B R s s_mod_L A;
   reg u64[4] n rGnP;
   reg u64[8] h;
   stack u64[4] rGnPs Rs As Bs;
@@ -196,6 +199,16 @@ export fn jade_ed25519_amd64_verify(reg u64 sigp pkp mp msg_len) -> reg u64
   () = #unspill(sigp);
   sigp += 8*4;
   s = __load4(sigp);
+  
+  // Check s is reduced below curve order L
+  s_mod_L = #copy(s);
+  s_mod_L = sc25519_from32bytes(s_mod_L);
+  ?{}, z = #set0();
+  () = #unspill(valid);
+  neq = __cmp4_brr(s, s_mod_L);
+  valid = #CMOVcc(!neq, valid, z);
+  () = #spill(valid);
+  // Compute s*G
   mG = curve25519_mulx_base(s);
   B = _encode_point(mG[0:12]);
   Bs = #copy(B);

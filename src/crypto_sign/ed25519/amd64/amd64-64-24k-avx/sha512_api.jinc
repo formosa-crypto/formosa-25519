@@ -44,7 +44,7 @@ inline fn sha512_init(stack u64[25] pstate) -> stack u64[25]
  * @returns {reg ptr u64[25]} - Updated iterative-API state structure
  *
  * This function digests the external message m with the current state H (pstate 16-24)
- * with and the remaining bytes (pstate 0-16) using the SHA-512 compression function.
+ * and the remaining bytes (pstate 0-16) using the SHA-512 compression function.
  * This function can be applied, if exactly 32-bytes are in the pstate buffer.
 */
 #[sct="{ ptr: public, val: { n: secret, s:secret } } * public * secret * msf -> { ptr: public, val: { n: secret, s:secret } } * msf"]
@@ -152,7 +152,7 @@ fn sha512_update_ext_32(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen, #[msf]
  * @returns {reg ptr u64[25]} - Updated iterative-API state structure
  *
  * This function digests the external message m with the current state H (pstate 16-24)
- * with and the remaining bytes (pstate 0-16) using the SHA-512 compression function.
+ * and the remaining bytes (pstate 0-16) using the SHA-512 compression function.
  * This function can be applied, if exactly 64-bytes are in the pstate buffer.
 */
 #[sct="{ ptr: public, val: { n: secret, s:secret } } * public * secret * msf -> { ptr: public, val: { n: secret, s:secret } } * msf"]

@@ -1,6 +1,3 @@
-require "../common/decode_scalar.jinc"
-
-
 require "../common/64/init_points4.jinc"
 require "../common/64/add4.jinc"
 require "../common/64/sub4.jinc"
@@ -10,8 +7,6 @@ require "cswap4.jinc"
 require "dbl4.jinc"
 require "mul4.jinc"
 require "sqr4.jinc"
-require "invert4.jinc"
-require "decode_point.jinc"
 require "encode_point.jinc"
 require "shared_const.jinc"
 
@@ -26,6 +21,7 @@ inline fn __add_and_double4(
   stack u64[4] x3 y3 z3 t3 x4 y4 z4 t4;
   stack u64[4] a _a b _b c _c d e f g h;
   
+  // Formulas from https://datatracker.ietf.org/doc/html/rfc8032
   x1 = #copy(r0[0:4]);
   y1 = #copy(r0[4:4]);
   z1 = #copy(r0[8:4]);
@@ -36,6 +32,7 @@ inline fn __add_and_double4(
   z2 = #copy(r1[8:4]);
   t2 = #copy(r1[12:4]);
   
+  // Point addition
   a = __sub4_sss(y1, x1);
   _a = __sub4_sss(y2, x2);
   a = __mul4_sss(a, _a);
@@ -61,7 +58,7 @@ inline fn __add_and_double4(
   z4 = __mul4_sss(f, g);
   t4 = __mul4_sss(e, h);
   
-  
+  // Point doubling
   a = __sqr4_ss(x1);
   b = __sqr4_ss(y1);
   c = __sqr4_ss(z1);
@@ -146,6 +143,7 @@ inline fn __montgomery_ladder4(
     ctr = ctrs;
   } ( ctr > 0 )
 	
+	// Final cswap if points ended swapped
   r0, r1 = __cswap4(r0, r1, swapped);
   
   return r0;

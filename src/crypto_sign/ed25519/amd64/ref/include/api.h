@@ -1,24 +1,39 @@
-#ifndef JADE_SCALARMULT_curve25519_amd64_mulx_API_H
-#define JADE_SCALARMULT_curve25519_amd64_mulx_API_H
+#ifndef JADE_SIGN_ed25519_amd64_ref_API_H
+#define JADE_SIGN_ed25519_amd64_ref_API_H
 
-#define JADE_SCALARMULT_curve25519_amd64_mulx_BYTES 32
-#define JADE_SCALARMULT_curve25519_amd64_mulx_SCALARBYTES 32
+#define JADE_SIGN_ed25519_amd64_ref_BYTES 64
+#define JADE_SIGN_ed25519_amd64_ref_CRYPTO_SECRETKEYBYTES 64
+#define JADE_SIGN_ed25519_amd64_ref_CRYPTO_PUBLICKEYBYTES 32
+#define JADE_SIGN_ed25519_amd64_ref_DETERMINISTIC 1
 
-#define JADE_SCALARMULT_curve25519_amd64_mulx_ALGNAME "Curve25519"
-#define JADE_SCALARMULT_curve25519_amd64_mulx_ARCH    "amd64"
-#define JADE_SCALARMULT_curve25519_amd64_mulx_IMPL    "mulx"
+#define JADE_SIGN_ed25519_amd64_ref_ALGNAME "Ed25519"
+#define JADE_SIGN_ed25519_amd64_ref_ARCH    "amd64"
+#define JADE_SIGN_ed25519_amd64_ref_IMPL    "ref"
 
 #include <stdint.h>
 
-int jade_scalarmult_curve25519_amd64_mulx(
- uint8_t *q,
- const uint8_t *n,
- const uint8_t *p
+int jade_ed25519_amd64_keygen(
+	const uint8_t* sk,
+	const uint8_t* pk
 );
 
-int jade_scalarmult_curve25519_amd64_mulx_base(
- uint8_t *q,
- const uint8_t *n
+int jade_ed25519_amd64_pubkey(
+	const uint8_t* sk,
+	const uint8_t* pk
+);
+
+int jade_ed25519_amd64_sign(
+	const uint8_t* sk,
+	const uint8_t* m,
+	uint64_t msg_len,
+	const uint8_t* sig
+);
+
+uint64_t jade_ed25519_amd64_verify(
+	const uint8_t* sig,
+	const uint8_t* pk,
+	const uint8_t* m,
+	uint64_t msg_len
 );
 
 #endif

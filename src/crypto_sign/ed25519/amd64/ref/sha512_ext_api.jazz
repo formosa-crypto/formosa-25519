@@ -79,36 +79,26 @@ export fn jade_sha512_update_32(reg u64 statep mp0 mp1 mp2 mp3)-> reg u64
 export fn jade_sha512_finalize(reg u64 statep outp)-> reg u64
 {
 	reg u64 r;
+	reg u64[8] h;
+	stack u64[8] H;
+	stack u64[25] state;
 	inline int i;
 	
-	stack u64[25] state;
-  reg ptr u64[25] pstate;
-  reg u64 temp;
-  stack u64 outps;
-  
-  stack u64[8] H;
-  reg u64[8] h;
-  reg ptr u64[8] Hreg;
-	
 	for i=0 to 25
-  {
-  	temp = [statep + 8*i];
-  	state[i] = temp;
-  }
-  
-	outps = outp;
-  Hreg = H;
-	pstate = state;
-	Hreg = sha512_finalize(pstate, Hreg);
-  H = Hreg;
-  h = #copy(H);
-  
-  outp = outps;
-  for i=0 to 8
-  {
-  	[outp + 8*i] = h[i];
-  }
-  
-  ?{}, r = #set0();
-  return r;
+	{
+		state[i] = [statep + 8*i];
+	}
+
+	() = #spill(outp);
+	H= sha512_finalize(state, H);
+	h = #copy(H);
+
+	() = #unspill(outp);
+	for i=0 to 8
+	{
+		[outp + 8*i] = h[i];
+	}
+
+	?{}, r = #set0();
+	return r;
 }
