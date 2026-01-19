@@ -24,7 +24,7 @@ inline fn __add_and_double4(
 {
   stack u64[4] x1 y1 z1 t1 x2 y2 z2 t2;
   stack u64[4] x3 y3 z3 t3 x4 y4 z4 t4;
-  stack u64[4] a b c d e f g h;
+  stack u64[4] a _a b _b c _c d e f g h;
   
   x1 = #copy(r0[0:4]);
   y1 = #copy(r0[4:4]);
@@ -37,19 +37,19 @@ inline fn __add_and_double4(
   t2 = #copy(r1[12:4]);
   
   a = __sub4_sss(y1, x1);
-  b = __sub4_sss(y2, x2);
-  a = __mul4_sss(b, a);
+  _a = __sub4_sss(y2, x2);
+  a = __mul4_sss(a, _a);
   
   b = __add4_sss(y1, x1);
-  c = __add4_sss(y2, x2);
-  b = __mul4_sss(b, c);
+  _b = __add4_sss(y2, x2);
+  b = __mul4_sss(b, _b);
   
   c = __dlb4_ss(t1);
-  d = __mul4_sss(ecd, t2);
-  c = __mul4_sss(c, d);
+  _c = __mul4_sss(ecd, t2);
+  c = __mul4_sss(c, _c);
   
   d = __dlb4_ss(z1);
-  d = __mul4_sss(ecd, z2);
+  d = __mul4_sss(d, z2);
   
   e = __sub4_sss(b, a);
   f = __sub4_sss(d, c);
@@ -123,13 +123,11 @@ inline fn __montgomery_ladder4(
   stack u8[32] k,
   stack u64[16] r1)
   ->
-  stack u64[12]
+  stack u64[16]
 {
   reg u64 ctr;
   stack u64 ctrs swapped;
-  stack u64[12] r;
   stack u64[16] r0;
-  inline int i;
   
   r0 = __init_point_inf();
 
@@ -148,67 +146,57 @@ inline fn __montgomery_ladder4(
     ctr = ctrs;
   } ( ctr > 0 )
 	
-  r0, r1 = __cswap4(r1, r0, swapped);
+  r0, r1 = __cswap4(r0, r1, swapped);
   
-  for i=0 to 12
-  { r[i] = r0[i]; }
-  
-  return r;
+  return r0;
 }
 
 
-fn __curve25519_internal_mulx(reg ptr u64[16] pp, reg ptr u8[32] kp) -> reg u64[4]
+fn __curve25519_internal_mulx(reg mut ptr u64[16] pp, reg ptr u8[32] kp) -> reg mut ptr u64[16]
 {
   stack u8[32] ks;
-  stack u64[12] kP;
+  stack u64[16] kP;
   stack u64[16] P;
-  reg u64[4] r;
   inline int i;
   
   for i=0 to 16
   { P[i] = pp[i];  }
+  () = #spill(pp);
   
   for i=0 to 32
   { ks[i] = kp[i];  }
   
   kP = __montgomery_ladder4(ks, P);
-  r = _encode_point(kP);
   
-  return r;
+  () = #unspill(pp);
+  for i=0 to 16
+  { pp[i] = kP[i];  }
+  
+  return pp;
 }
 
-inline fn curve25519_mulx(reg u64[4] _k P) -> reg u64[4]
+inline fn curve25519_mulx(reg u64[4] _k, stack u64[16] pp) -> stack u64[16]
 {
-  reg u64 valid;
-  reg u64[4] r;
   stack u8[32] k;
-  stack u64[4] Ps;
-  stack u64[16] pp;
 	
   k = #copy(_k);
-  Ps = #copy(P);
   
-  pp, valid = _decode_point(pp, Ps);
-  r = __curve25519_internal_mulx(pp, k);
+  pp = __curve25519_internal_mulx(pp, k);
 	
-  return r;
+  return pp;
 }
 
 
-inline fn curve25519_mulx_base(reg u64[4] _k) -> reg u64[4]
+inline fn curve25519_mulx_base(reg u64[4] _k) -> stack u64[16]
 {
-  reg u64[4] r;
   stack u8[32] k;
   stack u64[16] pp;
-  inline int i;
   
   k = #copy(_k);
+  pp = #copy(G);
   
-	for i=0 to 16
-	{ pp[i] = G[i]; }
-  
-  r = __curve25519_internal_mulx(pp, k);
+  pp = __curve25519_internal_mulx(pp, k);
 	
-  return r;
+  return pp;
 }
 

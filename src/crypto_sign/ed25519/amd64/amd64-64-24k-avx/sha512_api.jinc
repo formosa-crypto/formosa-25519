@@ -130,6 +130,11 @@ fn sha512_update_ext_32(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen, #[msf]
     pstate[:u64 (16+k)] = H_r[k];
   }
   
+  dig_buf[0] = m_shift[0];
+  dig_buf[1] = m_buf[0];
+  dig_buf[2] = m_buf[1];
+  dig_buf[3] = m_buf[2];
+  
   // Store the leftover bytes
   for k=0 to 4
   {

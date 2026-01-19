@@ -155,7 +155,7 @@ inline fn __SSIG1_ref(reg u64 x) -> reg u64
 }
 
 // Wt = SSIG1(W(t-2)) + W(t-7) + SSIG0(t-15) + W(t-16)
-inline fn __Wt_ref(stack u64[80] W, inline int t) -> stack u64[80]
+inline fn __Wt_ref(stack u64[80] W, reg u64 t) -> stack u64[80]
 {
   reg u64 wt wt2 wt15;
 
@@ -191,9 +191,11 @@ fn _blocks_0_ref(reg ptr u64[25] pstate) -> reg ptr u64[25]
     v = #BSWAP_64(v);
     W[i] = v;
   }
-
-  for i=16 to 80
-  { W = __Wt_ref(W, i); }
+	
+	tr = 16;
+  while (tr < 80)
+  { W = __Wt_ref(W, tr);
+  		tr += 1;}
 
   a, b, c, d, e, f, g, h = __load_H_ref(H);
 
@@ -273,8 +275,10 @@ fn _blocks_1_ref(reg ptr u64[8] Hp, reg ptr u64[32] sblocks, reg u64 nblocks) ->
     }
     () = #spill(sblocks);
 
-    for i=16 to 80
-    { W = __Wt_ref(W, i); }
+    tr = 16;
+		while (tr < 80)
+		{ W = __Wt_ref(W, tr);
+				tr += 1;}
 
     a, b, c, d, e, f, g, h = __load_H_ref(H);
 
@@ -333,15 +337,16 @@ fn _blocks_1_ref(reg ptr u64[8] Hp, reg ptr u64[32] sblocks, reg u64 nblocks) ->
 
 inline fn __lastblocks_ref(stack u8[128] in, reg u64 inlen bits) -> stack u64[32], reg u64
 {
+  reg u64 i j nblocks z;
   stack u64[32] sblocks;
   inline int k;
-  reg u64 i j nblocks z;
 
   ?{}, z = #set0();
 
   // Zero-fill the sblocks array
   for k = 0 to 32 { sblocks[k] = z; }
-
+	
+	i = 0;
   // copy in to sblocks
   while(i < inlen)
   { 
@@ -351,7 +356,7 @@ inline fn __lastblocks_ref(stack u8[128] in, reg u64 inlen bits) -> stack u64[32
 
   // set first byte after input to 0x80 
   sblocks[:u8 inlen] = 0x80;
-
+  
   // check if one or two blocks are needed
   if(inlen < 112)
   { j = (128-8); nblocks = 1; i = 127; }

@@ -3,23 +3,17 @@ require "sha512_api.jinc"
 export fn jade_sha512_init(reg u64 statep)-> reg u64
 {
 	reg u64 r;
-	inline int i;
-	
 	stack u64[25] state;
-  reg ptr u64[25] pstate;
-  reg u64 temp;
-  stack u64 stateps;
+	inline int i;
   
-  stateps = statep;
+  () = #spill(statep);
   
-  pstate = state;
-  pstate = sha512_init(pstate);
-  state = pstate;
+  state = sha512_init(state);
   
+  () = #unspill(statep);
   for i=0 to 25
   {
-  	temp = state[i];
-  	[statep + 8*i] = temp;
+			[statep + 8*i] = state[i];
   }
   
   ?{}, r = #set0();
@@ -29,30 +23,53 @@ export fn jade_sha512_init(reg u64 statep)-> reg u64
 export fn jade_sha512_update(reg u64 statep mp msg_len)-> reg u64
 {
 	reg u64 r;
-	inline int i;
-	
 	stack u64[25] state;
-  reg ptr u64[25] pstate;
-  reg u64 temp;
-  stack u64 stateps;
+	inline int i;
   
 	for i=0 to 25
   {
-  	temp = [statep + 8*i];
-  	state[i] = temp;
+  		state[i] = [statep + 8*i];
   }
   
-  stateps = statep;
+  () = #spill(statep);
   
-	pstate = state;
-  pstate = sha512_update_ext(pstate, mp, msg_len);
-  state = pstate;
+  state = sha512_update_ext(state, mp, msg_len);
   
-  statep = stateps;
+  () = #unspill(statep);
   for i=0 to 25
   {
-  	temp = state[i];
-  	[statep + 8*i] = temp;
+  		[statep + 8*i] = state[i];
+  }
+  
+  ?{}, r = #set0();
+  return r;
+}
+
+export fn jade_sha512_update_32(reg u64 statep mp0 mp1 mp2 mp3)-> reg u64
+{
+	reg u64 r;
+	reg u64[4] m;
+	stack u64[25] state;
+  inline int i;
+  
+  m[0] = mp0;
+  m[1] = mp1;
+  m[2] = mp2;
+  m[3] = mp3;
+  
+	for i=0 to 25
+  {
+  		state[i] = [statep + 8*i];
+  }
+  
+  () = #spill(statep);
+  
+  state = sha512_update_32(state, m);
+  
+  () = #unspill(statep);
+  for i=0 to 25
+  {
+  		[statep + 8*i] = state[i];
   }
   
   ?{}, r = #set0();

@@ -28,7 +28,6 @@ inline fn __ge25519_unpackneg_vartime(stack u64[16] rs, reg ptr u8[32] pp, #[msf
 	reg u8 cmp_8 par x_par;						// comparison result, parity, parity
 	reg u64 cmp_64 valid;							// comparison result, valid=1 for valid point
 	reg u64 mask;											// Mask
-	reg u64 x y;												// x and y coordinates
 	reg u256 v_256 valid_256;					// Memory transfer, mask for vector blending
 	reg u64[4] beta chk;								// square of root, check value
 	reg u64[4] _rx rx ry _ry rt;				// x,y,t coordinate in register
@@ -54,14 +53,12 @@ inline fn __ge25519_unpackneg_vartime(stack u64[16] rs, reg ptr u8[32] pp, #[msf
 	// Set y coordinate to input with MSB cleared
 	for i=0 to 3
 	{
-		y = pp[:u64 i];
-		rs[4+i] = y;
-		ry[i] = y;
+		ry[i] = pp[:u64 i];
+		rs[4+i] = ry[i];
 	}
-	y = pp[:u64 3];
-	y &= 0x7fffffffffffffff;
-	rs[7] = y;
-	ry[3] = y;
+	ry[3] = pp[:u64 3];
+	ry[3] &= 0x7fffffffffffffff;
+	rs[7] = ry[3];
 	
 	// Check if y is below p
 	// Reduce y below p check for equality
@@ -182,16 +179,13 @@ inline fn __ge25519_unpackneg_vartime(stack u64[16] rs, reg ptr u8[32] pp, #[msf
 	msf = #mov_msf(msf_s);
 	for i=0 to 4
 	{
-		x = rx[i];
-		() = #declassify(x);
-		rs[i] = x;
+		rs[i] = rx[i];
 	}
 	
 	cmp_8 = __cmp4_z(rx);
 	cmp_8 &= par; // 1 if x=0 and par=1 (negative)
 	cmp_64 = (64u)cmp_8;
 	valid = !cmp_64 & valid; // Still valid if valid before and cmp_8=0
-	() = #declassify(valid);
 	() = #spill(valid);
 	
 	// Build mask to return arbitrary point_26 for invalid input

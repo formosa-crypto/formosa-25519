@@ -286,8 +286,6 @@ export fn jade_ed25519_amd64_verify(reg u64 sigp pkp mp msg_len) -> reg u64
   // Load public key and commitment
   A_256 = [:u256 pkp];
   R_256 = [:u256 sigp];
-  () = #declassify(A_256);
-  () = #declassify(R_256);
   
   A[:u256 0] = A_256;
   R[:u256 0] = R_256;
@@ -317,14 +315,12 @@ export fn jade_ed25519_amd64_verify(reg u64 sigp pkp mp msg_len) -> reg u64
   for i=0 to 4
 	{
 		s[i] = [sigp + 32 + 8*i];
+		() = #declassify(n[i]);
+		() = #declassify(s[i]);
 	}
 	
 	// Declassify public values for the sct checker
 	() = #declassify(A);
-	for i=0 to 4 {
-		() = #declassify(n[i]);
-		() = #declassify(s[i]);
-	}
 	
 	// Compute s*G - H(R,A,m)*A
 	// Check validity of the signature (point on curve, in range...)

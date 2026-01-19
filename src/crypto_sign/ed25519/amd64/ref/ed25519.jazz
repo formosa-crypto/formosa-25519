@@ -20,11 +20,12 @@ require "sc25519_mul.jinc"
 export fn jade_ed25519_amd64_keygen(reg u64 skp pkp) -> reg u64
 {
   reg u64 r;
-  reg u64[4] h_red;
+  reg u64[4] s;
   reg u64[4] pk sk;
   reg u64[8] h;
   stack u64[4] sks ks;
   stack u64[8] H;
+  stack u64[16] sG;
   stack u64[25] state;
   
   () = #spill(skp, pkp);
@@ -43,9 +44,10 @@ export fn jade_ed25519_amd64_keygen(reg u64 skp pkp) -> reg u64
 	h = #copy(H);
 	
   ks = __decode_scalar(h);
-  h_red = #copy(ks);
+  s = #copy(ks);
   
-  pk = curve25519_mulx_base(h_red);
+  sG = curve25519_mulx_base(s);
+	pk = _encode_point(sG[0:12]);
   
   () = #unspill(skp, pkp);
   __store4(pkp, pk);
@@ -72,13 +74,14 @@ export fn jade_ed25519_amd64_keygen(reg u64 skp pkp) -> reg u64
 export fn jade_ed25519_amd64_sign(reg u64 skp mp msg_len sigp) -> reg u64
 {
   inline int i;
-  reg u64 r;
+  reg u64 rax;
   reg u64[4] sk pk;
   reg u64[4] prefix;
-  reg u64[4] s h_red R;
+  reg u64[4] k r R S;
   reg u64[8] h;
-  stack u64[4] rs ks;
+  stack u64[4] rs s;
   stack u64[8] H;
+  stack u64[16] rG;
   stack u64[25] state state_2;
 	
 	() = #spill(mp, msg_len, sigp, skp);
@@ -92,14 +95,12 @@ export fn jade_ed25519_amd64_sign(reg u64 skp mp msg_len sigp) -> reg u64
 	H = sha512_finalize(state, H);
 	h = #copy(H);
 	
-  ks = __decode_scalar(h);
-  
-	
-	h = #copy(H);
 	for i=0 to 4{
 		prefix[i] = h[4+i];
 	}
 	
+  s = __decode_scalar(h);
+  
 	state = sha512_init(state);
 	state = sha512_update_32(state, prefix);
   
@@ -109,9 +110,10 @@ export fn jade_ed25519_amd64_sign(reg u64 skp mp msg_len sigp) -> reg u64
 	H = sha512_finalize(state, H);
 	h = #copy(H);
   
-  h_red = sc25519_barrett(h);
-  rs = #copy(h_red);
-  R = curve25519_mulx_base(h_red);
+  r = sc25519_barrett(h);
+  rs = #copy(r);
+  rG = curve25519_mulx_base(r);
+  R = _encode_point(rG[0:12]);
   
   () = #unspill(sigp);
   __store4(sigp, R);
@@ -128,17 +130,17 @@ export fn jade_ed25519_amd64_sign(reg u64 skp mp msg_len sigp) -> reg u64
 	H = sha512_finalize(state_2, H);
 	h = #copy(H);
   
-  h_red = sc25519_barrett(h);
+  k = sc25519_barrett(h);
 	
-  s = sc25519_mul_rsr(ks, h_red);
-	s = sc25519_add_rrs(s, rs);
+  S = sc25519_mul_rsr(s, k);
+	S = sc25519_add_rrs(S, rs);
 	
 	() = #unspill(sigp);
 	sigp += 32;
-  __store4(sigp, s);
+  __store4(sigp, S);
   
-  ?{}, r = #set0();
-  return r;
+  ?{}, rax = #set0();
+  return rax;
 }
 
 /**
@@ -155,32 +157,30 @@ export fn jade_ed25519_amd64_sign(reg u64 skp mp msg_len sigp) -> reg u64
 #[sct="transient * transient * transient * transient -> public"]
 export fn jade_ed25519_amd64_verify(reg u64 sigp pkp mp msg_len) -> reg u64
 {
-  reg u8 cmp_8;
-  reg u64 valid;
-  reg u64 vrfy_res temp_64;
-  reg u64[4] B R s A h_red;
-  reg u64[4] s_enc r_enc;
+  reg u64 valid valid_R z;
+  reg u64 vrfy_res;
+  reg u64[4] B R s A;
+  reg u64[4] n rGnP;
   reg u64[8] h;
-  stack u64[4] Rs As Bs s_encs;
+  stack u64[4] rGnPs Rs As Bs;
   stack u64[8] H;
-  stack u64[12] sp;
-  stack u64[16] mG mGnP nP;
+  stack u64[16] mG rG_nP nP rG sG;
   stack u64[25] state;
-  
-  inline int i;
+  reg bool neq;
   
   () = #spill(msg_len, mp, sigp);
   
   R = __load4(sigp);
-  Rs = #copy(R);
   A = __load4(pkp);
+  Rs = #copy(R);
   As = #copy(A);
   
 	state = sha512_init(state);
-	
-	R = #copy(Rs);
   state = sha512_update_32(state, R);
 	
+	sG, valid = _decode_point(sG, As);
+  () = #spill(valid);
+  
 	A = #copy(As);
   state = sha512_update_32(state, A);
   
@@ -190,46 +190,33 @@ export fn jade_ed25519_amd64_verify(reg u64 sigp pkp mp msg_len) -> reg u64
 	H = sha512_finalize(state, H);
 	h = #copy(H);
   
-  h_red = sc25519_barrett(h);
-  for i=0 to 4{
-			temp_64 = As[i];
-			temp_64 = #BSWAP_64(temp_64);
-			A[3-i] = temp_64;
-  }
-  s_enc = curve25519_mulx(h_red, A);
-  for i=0 to 4{
-			temp_64 = s_enc[i];
-			temp_64 = #BSWAP_64(temp_64);
-			s_encs[3-i] = temp_64;
-  }
+  n = sc25519_barrett(h);
+  nP = curve25519_mulx(n, sG);
   
   () = #unspill(sigp);
   sigp += 8*4;
   s = __load4(sigp);
-  B = curve25519_mulx_base(s);
+  mG = curve25519_mulx_base(s);
+  B = _encode_point(mG[0:12]);
   Bs = #copy(B);
   
-  nP, valid = _decode_point(nP, s_encs);
-  for i=0 to 4{
-  	temp_64 = Rs[i];
-  	temp_64 = #BSWAP_64(temp_64);
-  	R[3-i] = temp_64;
-  }
-  Rs = #copy(R);
+  rG, valid_R = _decode_point(rG, Rs);
+  () = #unspill(valid);
+  valid &= valid_R;
+  () = #spill(valid);
   
-  mG, valid = _decode_point(mG, Rs);
-  _, mGnP = __add_and_double4(nP, mG);
+  _, rG_nP = __add_and_double4(rG, nP);
+  rGnP = _encode_point(rG_nP[0:12]);
+  rGnPs = #copy(rGnP);
   
-  for i=0 to 12
-  { sp[i] = mGnP[i]; }
-  r_enc = _encode_point(sp);
-  
-  B = #copy(Bs);
-	cmp_8 = __cmp4_rr(r_enc, B);
-	temp_64 = (64u)cmp_8;
-	vrfy_res = temp_64;
-	vrfy_res &= 0x1;
-  
+  () = #unspill(valid);
+  ?{}, z = #set0();
+  neq = __cmp4_bss(rGnPs, Bs);
+	valid = #CMOVcc(!neq, valid, z);
+	
+	// Invert result (valid signature returns 0)
+	vrfy_res = valid - 1;
+	
   return vrfy_res;
 }
 

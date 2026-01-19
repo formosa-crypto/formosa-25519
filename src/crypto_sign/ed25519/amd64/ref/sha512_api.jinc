@@ -45,7 +45,7 @@ fn sha512_update_32(reg ptr u64[25] pstate, reg u64[4] m) -> reg ptr u64[25]
   mod_len = mod_len & 0x7f;
 
   m_s = #copy(m);
-  
+  i = 0;
   if (mod_len > 128 - 32 - 1) {
   
     while (mod_len < 128) {
@@ -80,7 +80,7 @@ fn sha512_update_32(reg ptr u64[25] pstate, reg u64[4] m) -> reg ptr u64[25]
 
 fn sha512_update_ext(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen) -> reg ptr u64[25]
 {
-  reg u64 mod_len total_len iterations;
+  reg u64 digested_bytes mod_len total_len iterations;
   reg u64 j;	
 
   // Update len
@@ -90,9 +90,9 @@ fn sha512_update_ext(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen) -> reg pt
   pstate[24] = total_len;
 
   mod_len = mod_len & 0x7f;	
-  iterations = mod_len;
-  iterations = iterations + inlen;
-  iterations = iterations >> 7;
+  digested_bytes = inlen;
+  digested_bytes += mod_len;
+  iterations = digested_bytes >> 7;
   
   j = iterations;
 

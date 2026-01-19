@@ -132,11 +132,10 @@ fn _decode_point(reg mut ptr u64[16] rp, reg ptr u64[4] y) -> reg mut ptr u64[16
   x_par = (8u)rx[0];
   x_par &= 1;
  	
- 	// If parity matches original parity, negate to unpack negative point
- 	// Else do nothing
+ 	// If parity does not match original parity, negate
  	() = #unspill(par);
  	cmp_8 = x_par ^ par;
- 	if (cmp_8 == 0){
+ 	if (cmp_8 == 1){
  		for i=0 to 4
  		{	?{}, _rx[i] = #set0(); }
 		
@@ -144,12 +143,12 @@ fn _decode_point(reg mut ptr u64[16] rp, reg ptr u64[4] y) -> reg mut ptr u64[16
 		rx = #copy(_rx);
  	}
 	
-	// If x is 0 and parity is negative, set to invalid
 	for i=0 to 4
 	{
 		rs[i] = rx[i];
 	}
 	
+	// If x is 0 and parity is negative, set to invalid
 	cmp_8 = __cmp4_z(rx);
 	() = #unspill(par, valid);
 	cmp_8 &= par; // 1 if x=0 and par=1 (negative)

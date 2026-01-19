@@ -56,7 +56,6 @@ fn mGnP(reg ptr u64[4] Q, reg u64[4] m, reg u64[4] n, reg ptr u8[32] P, #[msf] r
   // Store the packed point R
   Q = Qs;
   () = #unspill(valid);
-  () = #declassify(v_256);
   Q[:u256 0] = #VMOVDQA_256(v_256);
   
   return Q, valid, msf;
