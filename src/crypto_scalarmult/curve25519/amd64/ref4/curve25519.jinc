@@ -98,7 +98,7 @@ inline fn __montgomery_ladder4(
   stack u64[4] us x2 x3 z3;
   reg u64[4] z2r;
   stack u64 swapped;
-  #spill_to_mmx reg u64 ctr;
+  #[spill_to_mmx] reg u64 ctr;
 
   (x2,z2r,x3,z3) = __init_points4(u); 
   us = #copy(u);
