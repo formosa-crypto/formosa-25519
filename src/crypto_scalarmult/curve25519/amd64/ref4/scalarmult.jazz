@@ -1,7 +1,7 @@
 require "curve25519.jinc"
 
 export fn jade_scalarmult_curve25519_amd64_ref4(
-  #spill_to_mmx reg ptr u64[4] qp,
+  #[spill_to_mmx] reg ptr u64[4] qp,
   reg ptr u64[4] np,
   reg ptr u64[4] pp)
   ->
@@ -26,7 +26,7 @@ export fn jade_scalarmult_curve25519_amd64_ref4(
 }
 
 export fn jade_scalarmult_curve25519_amd64_ref4_base(
-  #spill_to_mmx reg ptr u64[4] qp,
+  #[spill_to_mmx] reg ptr u64[4] qp,
   reg ptr u64[4] np)
   ->
   reg ptr u64[4],
