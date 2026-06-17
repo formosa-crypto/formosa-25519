@@ -1,0 +1,47 @@
+// Multiple of the curve order
+// 1*L, 2*L, 4*8, 8*L
+u64[16] order = {0x5812631A5CF5D3ED, 0x14DEF9DEA2F79CD6, 
+                 0x0000000000000000, 0x1000000000000000,
+                 0xB024C634B9EBA7DA, 0x29BDF3BD45EF39AC,
+                 0x0000000000000000, 0x2000000000000000,
+                 0x60498C6973D74FB4, 0x537BE77A8BDE7359,
+                 0x0000000000000000, 0x4000000000000000,
+                 0xC09318D2E7AE9F68, 0xA6F7CEF517BCE6B2,
+                 0x0000000000000000, 0x8000000000000000};
+
+/**
+ * function sc25519_from32bytes
+ * @param {reg u64[4]} r - number in 64-bit limb representation
+ * @returns {reg u64[4]} - a % L in 4-limb representation
+ * 
+ * This function reduces the 4-limb number r below curve order L.
+ * The input is changed. The representation is:
+ * r = r % L
+ * r = ( 2**0*r0 +  2**64*r1 + 2**128*r2 + 2**192*r3 ) mod L
+*/
+inline fn sc25519_from32bytes(reg u64[4] r) -> reg u64[4]
+{
+  reg u64[4] t;
+  inline int j;
+  reg bool cf;  // Cary flag
+  
+  // Try to subtract 8*L, 4*L, 2*L, L
+  // If the result is positive, take the reduced result
+  // Else keep the previous value
+  for j=3 downto -1
+  {
+    t = #copy(r);
+    
+    cf, t[0] -= order[4*j];
+    cf, t[1] -= order[4*j + 1] - cf;
+    cf, t[2] -= order[4*j + 2] - cf;
+    cf, t[3] -= order[4*j + 3] - cf;
+    
+    r[0] = #CMOVcc(!cf, t[0], r[0]);
+    r[1] = #CMOVcc(!cf, t[1], r[1]);
+    r[2] = #CMOVcc(!cf, t[2], r[2]);
+    r[3] = #CMOVcc(!cf, t[3], r[3]);
+  }
+
+  return r;
+}

@@ -1,0 +1,63 @@
+u64[16] order = {0x5812631A5CF5D3ED, 0x14DEF9DEA2F79CD6, 
+                 0x0000000000000000, 0x1000000000000000,
+                 0xB024C634B9EBA7DA, 0x29BDF3BD45EF39AC,
+                 0x0000000000000000, 0x2000000000000000,
+                 0x60498C6973D74FB4, 0x537BE77A8BDE7359,
+                 0x0000000000000000, 0x4000000000000000,
+                 0xC09318D2E7AE9F68, 0xA6F7CEF517BCE6B2,
+                 0x0000000000000000, 0x8000000000000000};
+                
+abstract predicate bool eqmod(int, int, tuple);
+abstract predicate tuple single(int);
+abstract predicate tuple quad(u64, u64, u64, u64);
+abstract predicate int b2i(bool);
+abstract predicate int u64i(u64);
+abstract predicate u256 limbs_4u64(tuple);
+abstract predicate int pow(int, int);
+
+inline fn smaller(reg u64 a_in b_in) -> reg u64
+{
+	reg u64 res z;
+	reg bool ge;
+	
+	?{}, z = #set0();
+	res = 1;
+	?{"<u"=ge} = #CMP(a_in, b_in);
+	res = #CMOVcc(ge, res, z);
+	
+	return res;
+}
+
+fn sc25519_from32bytes(reg u64[4] r) -> reg u64[4]
+	ensures #[prover=smt] {
+     limbs_4u64(quad(result.0[0], result.0[1], result.0[2], result.0[3])) < 0x1000000000000000000000000000000014DEF9DEA2F79CD65812631A5CF5D3ED
+  }
+	ensures #[prover=cas] {
+  eqmod (
+     \sum (ii \in 0:4) (pow(2, 64*ii)*u64i(result.0[ii])),
+     \sum (ii \in 0:4) (pow(2, 64*ii)*u64i(r[ii])),
+     single((pow(2,252)) + 27742317777372353535851937790883648493)
+    )
+  }
+{
+	reg u64[4] t;
+	inline int j;
+	reg bool cf;
+	
+	for j=3 downto -1
+	{
+		t = #copy(r);
+		
+		cf, t[0] -= order[4*j];
+		cf, t[1] -= order[4*j + 1] - cf;
+		cf, t[2] -= order[4*j + 2] - cf;
+		cf, t[3] -= order[4*j + 3] - cf;
+		
+		r[0] = #CMOVcc(!cf, t[0], r[0]);
+		r[1] = #CMOVcc(!cf, t[1], r[1]);
+		r[2] = #CMOVcc(!cf, t[2], r[2]);
+		r[3] = #CMOVcc(!cf, t[3], r[3]);
+	}
+	
+	return r;
+}

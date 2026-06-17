@@ -10,7 +10,7 @@ _build/
 libformosa25519.a
 libformosa25519.h
 .deps
-.ec
+*.ec
 .log
 .error
 .JFLAGS

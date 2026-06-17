@@ -1,0 +1,62 @@
+require "sc25519_from32bytes.jinc"
+require "sc25519_barrett.jinc"
+require "ge25519_unpackneg.jinc"
+require "ge25519_double_scalarmult.jinc"
+require "ge25519_pack.jinc"
+
+/**
+ * function mGnP
+ * @param {reg ptr u64[4]} Q - Compressed output point
+ * @param {reg u64[4]} m - Scalar in 64-bit limb representation
+ * @param {reg u64[4]} n - Scalar in 64-bit limb representation
+ * @param {reg ptr u8[32]} P - Compressed input point
+ * @returns {reg ptr u64[4]} - Compressed m*G+n*P
+ * @returns {reg u64} - Validity of the compressed point and the m scalar
+ * 
+ * This functions requires a scalar m that is multiplied with the basepoint G
+ * and a scalar n, that is multiplied with the public key P. The result is 
+ * packed and written to Q. It runs in variable time.
+*/
+fn mGnP(reg ptr u64[4] Q, reg u64[4] m, reg u64[4] n, reg ptr u8[32] P, #[msf] reg u64 msf) -> reg ptr u64[4], reg u64, #[msf] reg u64
+{
+	reg u64 valid z;							// Signature valid, constant zero
+	stack u64[4] m_s m_red n_s; 	// Spilled scalars
+	stack u64[12] r;							// Result point
+	stack u64[16] ps;						// Unpacked point
+	reg u256 v_256;							// AVX2 register for store/load
+	#[mmx] reg ptr u64[4] Qs;			// Spilled Q result pointer
+	reg bool neq;
+	
+	Qs = Q;
+	m_s = #copy(m);
+	n_s = #copy(n);
+	
+	// Reduce m below L
+	m = sc25519_from32bytes(m);
+	m_red = #copy(m);
+	
+	// Unpack the input public key to extended coordinates
+	() = #declassify(ps);
+	ps, valid, msf = __ge25519_unpackneg_vartime(ps, P, msf);
+	
+	// If m was larger than L (m != reduced m), signature is invalid
+	?{}, z = #set0();
+	neq = __cmp4_bss(m_s, m_red);
+	valid = #CMOVcc(!neq, valid, z);
+	() = #spill(valid);
+	
+	// Compute the result R and pack it
+	() = #declassify(n_s);
+	() = #declassify(m_red);
+	n = #copy(n_s);
+	m = #copy(m_red);
+	r, msf = __ge25519_double_scalarmult_vartime(ps, n, m, msf);
+  v_256, msf = ge25519_pack(r, msf);
+  
+  // Store the packed point R
+  Q = Qs;
+  () = #unspill(valid);
+  Q[:u256 0] = #VMOVDQA_256(v_256);
+  
+  return Q, valid, msf;
+}

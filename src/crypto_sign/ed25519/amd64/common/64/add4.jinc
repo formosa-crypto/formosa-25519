@@ -1,0 +1,200 @@
+/**
+ * function __add4_rrs
+ * @param {reg u64[4]} f - first summand in 64-bit limb representation
+ * @param {stack u64[4]} g - ptr to second summand in 64-bit limb representation
+ * @returns {reg u64[4]} - Sum of f and g in 64-bit limb representation
+ * 
+ * This function adds the two numbers in f and g. Inputs are not consumed.
+ * The representation is:
+ * h = f + g
+ * h = 2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3 +
+ *     2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3
+*/
+inline fn __add4_rrs(reg u64[4] f, stack u64[4] g) -> reg u64[4]
+{
+  reg u64 z;    // Zero register
+  reg u64[4] h; // Result
+  reg bool cf;  // Carry flag
+  inline int i;
+
+  // Set 0 register
+  ?{}, z = #set0();
+
+  // Copy f to not consume input
+  h = #copy(f);
+
+  // Add with carry flag
+  cf, h[0] += g[0];
+  for i=1 to 4
+  { cf, h[i] += g[i] + cf; }
+
+  /*
+  cf = 0 -> No reduce, (z - cf) & 38 = 0 & 38 = 0
+  cf = 1 -> Reduce, (z - cf) & 38 = (0xf..f) & 38 = 38
+  */
+  _, z -= z - cf;
+  z &= 38;
+  
+  // Reduce in const time if cf=1 (add 38)
+  cf, h[0] += z;
+  for i=1 to 4
+  { cf, h[i] += 0 + cf; }
+  
+  // Reduce once more if f,g > 2*p
+  _, z -= z - cf;
+  z &= 38;
+  h[0] += z;
+
+  return h;
+}
+
+/**
+ * function __add4_rrr
+ * @param {reg u64[4]} f - first summand in 64-bit limb representation
+ * @param {reg u64[4]} g - second summand in 64-bit limb representation
+ * @returns {reg u64[4]} - Sum of f and g in 64-bit limb representation
+ * 
+ * This function adds the two numbers in f and g. First input is consumed.
+ * The representation is:
+ * h = f + g
+ * h = 2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3 +
+ *     2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3
+*/
+inline fn __add4_rrr(reg u64[4] f, reg u64[4] g) -> reg u64[4]
+{
+  reg u64 z;    // Zero register
+  reg bool cf;  // Carry flag
+  inline int i;
+
+  // Set 0 register
+  ?{}, z = #set0();
+
+  // Add with carry flag
+  cf, f[0] += g[0];
+  for i=1 to 4
+  { cf, f[i] += g[i] + cf; }
+  
+  /*
+  cf = 0 -> No reduce, (z - cf) & 38 = 0 & 38 = 0
+  cf = 1 -> Reduce, (z - cf) & 38 = (0xf..f) & 38 = 38
+  */
+  _, z -= z - cf;
+  z &= 38;
+
+  // Reduce in const time if cf=1 (add 38)
+  cf, f[0] += z;
+  for i=1 to 4
+  { cf, f[i] += 0 + cf; }
+  
+   // Reduce once more if f,g > 2*p
+  _, z -= z - cf;
+  z &= 38;
+  f[0] += z;
+
+  return f;
+}
+
+/**
+ * function __add4_rss
+ * @param {stack u64[4]} f - ptr to first summand in 64-bit limb representation
+ * @param {stack u64[4]} g - ptr to second summand in 64-bit limb representation
+ * @returns {reg u64[4]} - Sum of f and g in 64-bit limb representation
+ * 
+ * This function adds the two numbers in f and g. Inputs are not consumed.
+ * The representation is:
+ * h = f + g
+ * h = 2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3 +
+ *     2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3
+*/
+inline fn __add4_rss(stack u64[4] fs gs) -> reg u64[4]
+{
+  reg u64[4] h f;
+
+  f = #copy(fs);
+  h = __add4_rrs(f, gs);
+
+  return h;
+}
+
+/**
+ * function __add4_srr
+ * @param {reg u64[4]} f - first summand in 64-bit limb representation
+ * @param {reg u64[4]} g - second summand in 64-bit limb representation
+ * @returns {stack u64[4]} - Sum of f and g in 64-bit limb representation
+ * 
+ * This function adds the two numbers in f and g. First inputs is consumed.
+ * The representation is:
+ * h = f + g
+ * h = 2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3 +
+ *     2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3
+*/
+inline fn __add4_srr(reg u64[4] f, reg u64[4] g) -> stack u64[4]
+{
+  reg u64[4] h;
+  stack u64[4] hs;
+
+  h = __add4_rrr(f, g);
+  hs = #copy(h);
+
+  return hs;
+}
+
+/**
+ * function __add4_sss
+ * @param {stack u64[4]} f - ptr to first summand in 64-bit limb representation
+ * @param {stack u64[4]} g - ptr to second summand in 64-bit limb representation
+ * @returns {stack u64[4]} - Sum of f and g in 64-bit limb representation
+ * 
+ * This function adds the two numbers in f and g. First inputs is consumed.
+ * The representation is:
+ * h = f + g
+ * h = 2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3 +
+ *     2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3
+*/
+inline fn __add4_sss(stack u64[4] fs, stack u64[4] gs) -> stack u64[4]
+{
+  reg u64[4] f h;
+  stack u64[4] hs;
+
+  f = #copy(fs);
+  h = __add4_rrs(f, gs);
+  hs = #copy(h);
+
+  return hs;
+}
+
+/**
+ * function __inc4
+ * @param {reg u64[4]} f - input in 64-bit limb representation
+ * @returns {reg u64[4]} - input incremented by 1 in 64-bit limb representation
+ * 
+ * This function increments the input by 1. The input is consumed:
+ * h = f + 1
+ * h = 2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3 + 1
+*/
+inline fn __inc4(reg u64[4] f) -> reg u64[4]
+{
+  reg u64 z;    // Zero register
+  reg bool cf;  // Carry flag
+  inline int i;
+
+  // Set 0 register
+  ?{}, z = #set0();
+
+  // Add with carry flag
+  cf, f[0] += 1;
+  for i=1 to 4
+  { cf, f[i] += z + cf; }
+  
+  /*
+  cf = 0 -> No reduce, (z - cf) & 38 = 0 & 38 = 0
+  cf = 1 -> Reduce, (z - cf) & 38 = (0xf..f) & 38 = 38
+  */
+  _, z -= z - cf;
+  z &= 38;
+
+  // Reduce in const time if cf=1 (add 38)
+  cf, f[0] += z;
+
+  return f;
+}

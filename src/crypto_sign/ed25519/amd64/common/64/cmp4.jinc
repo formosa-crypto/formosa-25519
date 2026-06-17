@@ -1,0 +1,133 @@
+/**
+ * function __cmp4_z
+ * @param {reg u64[4]} a - First comparison input
+ * @returns {reg u8} - 1 if a==0 else 0
+ * 
+ * This functions compares the multi-limb input a with 0 in constant time.
+ * It returns 1 if a=0 and otherwise 0. The a is unchanged.
+*/
+inline fn __cmp4_z(reg u64[4] a) -> reg u8
+{
+	reg u8 res_8;           // Output
+	reg u64 acc res z;            // Constant zero
+	reg bool zf;          // Zero flag
+	inline int i;
+	
+	// Set result to 1 if all a[i]=b[i]
+	res = 1;
+	// Set 0 register
+	?{}, acc = #set0();
+	?{}, z = #set0();
+	for i = 0 to 4
+	{
+	  // XOR b[i] and c[i] to get zf=1 on equality
+	  ?{ ZF = zf }, acc = #OR_64(acc, a[i]);
+	}
+	
+	// If zf=0 -> b[i] != c[i], set result to 0
+        res = #CMOVcc(!zf, z, res);
+	// Set to desired output size
+	res_8 = (8u)res;
+	
+	return res_8;
+}
+
+/**
+ * function __cmp4_rr
+ * @param {reg u64[4]} a - First comparison input
+ * @param {reg u64[4]} a - Second comparison input
+ * @returns {reg u8} - 1 if a=b else 0
+ * 
+ * This functions compares the two multi-limb inputs a and b in constant time.
+ * It returns 1 if a=b and otherwise 0. The inputs are unchanged.
+*/
+inline fn __cmp4_rr(reg u64[4] a b) -> reg u8
+{
+	reg u8 res;           // Output
+	reg u16 res_16 z_16;  // Output, Constant zero
+	reg u64[4] c;         // First operand copy
+	reg bool zf;          // Zero flag
+	inline int i;
+	
+	// Copy first input to not alter it
+	c = #copy(a);
+	
+	// Set result to 1 if all a[i]=b[i]
+	res_16 = 1;
+	// Set 0 register
+	?{}, z_16 = #set0_16();
+	for i = 0 to 4
+	{
+	  // XOR b[i] and c[i] to get zf=1 on equality
+	  ?{ "==" = zf }, c[i] = #XOR_64(c[i], b[i]);
+	  // If zf=0 -> b[i] != c[i], set result to 0
+	  res_16 = #CMOVcc_16(!zf, z_16, res_16);
+	}
+	
+	// Set to desired output size
+	res = (8u)res_16;
+	
+	return res;
+}
+
+/**
+ * function __cmp4_brr
+ * @param {reg u64[4]} a - First comparison input
+ * @param {reg u64[4]} a - Second comparison input
+ * @returns {bool} - 1 if a!=b else 0
+ * 
+ * This functions compares the two multi-limb inputs a and b in constant time.
+ * It returns 1 if a=b and otherwise 0. The inputs are unchanged.
+*/
+inline fn __cmp4_brr(reg u64[4] a b) -> reg bool
+{
+  reg u64 diff v_64;    // diff=0 if a=b, temporary variable
+  reg bool neq;         // Zero flag
+  inline int i;
+
+  // Initialize diff with 0
+  diff = 0;
+  // If a[i]=b[i], always  |0 and diff=0
+  for i=0 to 4
+  {
+    v_64 = a[i];
+    v_64 ^= b[i];
+    diff |= v_64;
+  }
+  
+  // Return if diff=0
+  ?{"!=" = neq} = #CMP(diff, 0);
+
+  return neq;
+}
+
+/**
+ * function __cmp4_bss
+ * @param {stack u64[4]} a - First comparison input
+ * @param {stack u64[4]} a - Second comparison input
+ * @returns {bool} - 1 if a!=b else 0
+ * 
+ * This functions compares the two multi-limb inputs a and b in constant time.
+ * It returns 1 if a=b and otherwise 0. The inputs are unchanged.
+*/
+inline fn __cmp4_bss(stack u64[4] a b) -> reg bool
+{
+  reg u64 diff v_64;    // diff=0 if a=b, temporary variable
+  reg bool neq;         // Zero flag
+  inline int i;
+
+  // Initialize diff with 0
+  diff = 0;
+  // If a[i]=b[i], always  |0 and diff=0
+  for i=0 to 4
+  {
+    v_64 = a[i];
+    v_64 ^= b[i];
+    diff |= v_64;
+  }
+  
+  // Return if diff=0
+  ?{"!=" = neq} = #CMP(diff, 0);
+
+  return neq;
+}

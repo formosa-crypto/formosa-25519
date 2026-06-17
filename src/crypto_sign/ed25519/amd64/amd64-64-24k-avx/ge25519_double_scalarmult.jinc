@@ -1,0 +1,302 @@
+require "shared_const.jinc"
+
+require "../common/64/add4.jinc"
+require "../common/64/add5.jinc"
+require "../common/64/sub4.jinc"
+require "../common/64/sub5.jinc"
+require "../common/64/init_points4.jinc"
+require "../common/load_ptr4.jinc"
+
+require "ge25519_base_slide_multiples.jinc"
+require "ge25519_nielsadd_p1p1.jinc"
+require "ge25519_nielssub_p1p1.jinc"
+require "ge25519_pnielsadd_p1p1.jinc"
+require "ge25519_pnielssub_p1p1.jinc"
+require "ge25519_dbl_p1p1.jinc"
+require "ge25519_p1p1_to_p2.jinc"
+require "ge25519_p1p1_to_p3.jinc"
+require "sc25519_slide.jinc"
+
+require "mul4.jinc"
+require "mul5.jinc"
+
+param int S1_SWINDOWSIZE = 5;
+param int PRE1_SIZE = 8;
+param int S2_SWINDOWSIZE = 7;
+
+
+/**
+ * function __ge25519_double_scalarmult_vartime
+ * @param {stack u64[16]} p1 - Point in extended representation
+ * @param {reg u64[4]} n - Scalar in 64-bit limb representation
+ *	 @param {reg u64[4]} m - Scalar in 64-bit limb representation
+ * @returns {stack u64[12]} - Result point in projective representation
+ * 
+ * This function computes m*G + n*P. G is the basepoint and P is the public key.
+ * The first input is P in extended coordinates(x,y,z,t).
+ * The second input and the third input are scalars that should be reduced below
+ * curve order L. The output is in projective coordinates(x,y,z).
+*/
+#[sct="transient * transient * transient * msf -> transient * msf"]
+inline fn __ge25519_double_scalarmult_vartime(stack u64[16] p1, reg u64[4] n m, #[msf] reg u64 msf) -> stack u64[12], #[msf] reg u64
+{
+	reg u8 slide_8;									// current window
+	reg u64 slide_64;								// current window(extended)
+	reg u64 j k;											// loop iterators
+	reg u64 windowsize;							// Sliding window window size
+	#[mmx] reg u64 ks;									// loop iterator (splilled)
+	reg u64[4] t2d;									// Point coordinate
+	reg u256 v_256;									// Memory reads/writes
+	stack u8[256] n_slide m_slide;		// Sliding windows
+	stack u64[4] ms;									// scalar m (spilled)
+	stack u64[12] r;									// Result point (projective)
+	stack u64[16] t rs;							// Intermediate points (extended)
+	stack u64[18] d1;								// Input p1 (extended)
+	stack u64[18] p3;								// Intermediate points (extended)
+	stack u64[19] p3_19;							// Intermediate points (extended)
+	stack u64[PRE1_SIZE*16] pre1; 		// Precomputed points
+	reg ptr u8[256] np mp;						// Sliding windows
+	reg ptr u64[PRE1_SIZE*16] pre1p;	// Precomputed points
+	reg ptr u64[384] pre2p;					// Base point multiples
+	reg bool cond;
+	inline int i;
+	#[mmx] reg u64 msf_s;
+	
+	/***************************
+	*	Compute sliding windows	*
+	***************************/
+	// Spill m to make space
+	ms = #copy(m);
+	// Compute sliding windows for n
+	// Set window size for Public-key scalar
+	windowsize = S1_SWINDOWSIZE - 1;
+	np = n_slide;
+	// Compute windows
+	np, msf = sc25519_slide(n, np, windowsize, msf);
+	n_slide = np;
+	
+	// Compute sliding windows for m
+	m = #copy(ms);
+	// Set window size for Base-point scalar
+	windowsize = S2_SWINDOWSIZE - 1;
+	mp = m_slide;
+	// Compute windows
+	mp, msf = sc25519_slide(m, mp, windowsize, msf);
+	m_slide = mp;
+	
+	msf_s = #mov_msf(msf);
+	
+	/***************************
+	*		Precompute multiples		*
+	***************************/
+	// Initialize multiples with p1
+	for i=0 to 4{
+		v_256 = p1[:u256 i];
+		pre1[:u256 i] = v_256;
+	}
+	
+	// Compute t=2*p1
+	// Convert pre1 to pniels representation
+	t, pre1[0:12] = ge25519_dbl_p1p1_prep(pre1[0:12]);
+	// Convert to full extended representation
+	d1 = ge25519_p1p1_to_p3(t);
+	
+	// Compute t2d coordinate for pniels
+	t2d = __load_ptr4(pre1[12:4]);
+	pre1[12:4] = __mul4_ssr(ec2d, t2d);
+	
+	// Compute the PRE1_SIZE multiples
+	msf = #mov_msf(msf_s);
+	j = 0;
+	while {cond = (j < 16*(PRE1_SIZE-1));}(cond) {
+		msf = #update_msf(cond, msf);
+		msf_s = #mov_msf(msf);
+		() = #spill(j);
+		
+		// Add d1 = 2*p1 to the previous entry to get P,3*P,5*P...
+		// Windows have lsb=1, hence there can not be even values
+		pre1[j+16:16] = ge25519_pnielsadd_p1p1_prep(pre1[j+16:16], d1, pre1[j:16]);
+		
+		() = #unspill(j);
+		msf = #mov_msf(msf_s);
+		j = #protect(j, msf);
+		j += 16;
+	}
+	msf = #update_msf(!cond, msf);
+	
+	/***************************
+	*			Compute n*P+m*G			*
+	***************************/
+	// Initialize result with point in infinity (0)
+	rs = __init_point_inf();
+	
+	// Start at window 255
+	j = 255;
+	// k is a copy of j
+	k = j;
+	
+	// We will leak the windows
+	() = #declassify(m_slide);
+	() = #declassify(n_slide);
+	
+	// Iterate over windows until non-zero window is found
+	while{cond = (j >=s 0);}(cond){
+		msf = #update_msf(cond, msf);
+		
+		// If one window is non-zero, we break
+		slide_8 = n_slide[j];
+		slide_8 |= m_slide[j];
+		
+		// First non-zero window is always positive
+		// slide_64 is therefore always negative
+		slide_8 = -slide_8;
+		slide_64 = (64s)slide_8;
+		
+		// Set the start to the current window
+		k = j;
+		
+		// If slide_8 != 0, we set j to a negative value to break
+		// Else we xor with 0 and nothing happens
+		j ^= slide_64;
+		// Decrement j
+		j -= 1;
+		j = #protect(j, msf);
+	}
+	msf = #update_msf(!cond, msf);
+	
+	// Iterate over windows starting from first non-zero window
+	while{cond=(k >=s 0);}(cond){
+		msf = #update_msf(cond, msf);
+		// Spill window index k
+		ks = k;
+		
+		// Double result to add new window
+		t = ge25519_dbl_p1p1(rs[0:12]);
+		
+		// Get current value for n
+		slide_8 = n_slide[k];
+		slide_8 = #protect_8(slide_8, msf);
+		// Handle non-zero window
+		cond = (slide_8 != 0);
+		if(cond){
+			msf = #update_msf(cond, msf);
+			msf_s = #mov_msf(msf);
+			
+			// Convert to extended representation
+			p3 = ge25519_p1p1_to_p3(t);
+			// Get pointer to public-key multiples
+			pre1p = pre1;
+			
+			msf = #mov_msf(msf_s);
+			// Handle negative window
+			cond = (slide_8 <s 0);
+			if(cond){
+				msf = #update_msf(cond, msf);
+				msf_s = #mov_msf(msf);
+				
+				// Convert to positive index
+				slide_8 = -slide_8;
+				// Ignore lsb with value 1
+				slide_8 = slide_8 >> 1;
+				// Multiply by 16 to get index to precomputed points
+				// Every point has size 16*(sizeof u64)
+				slide_64 = (64u)slide_8;
+				_,_,_,_,_,slide_64 = #IMULri ( slide_64, 16 );
+        
+				// Subtract the public-key multiple
+				t = ge25519_pnielssub_p1p1(p3, pre1p[slide_64: 16]);
+				
+				msf = #mov_msf(msf_s);
+			}
+			// Handle positive window
+			else {
+				msf = #update_msf(!cond, msf);
+				msf_s = #mov_msf(msf);
+				
+				// Convert as above
+				slide_8 = slide_8 >> 1;
+				slide_64 = (64u)slide_8;
+				?{}, slide_64 = #IMULri ( slide_64, 16 );
+				
+				// Add the public-key multiple
+				t = ge25519_pnielsadd_p1p1(p3, pre1p[slide_64: 16]);
+				
+				msf = #mov_msf(msf_s);
+			}
+		}
+		else{
+			msf = #update_msf(!cond, msf);
+		}
+		
+		k = ks;
+		// Get current value for m
+		slide_8 = m_slide[k];
+		slide_8 = #protect_8(slide_8, msf);
+		cond = (slide_8 != 0);
+		if(cond){
+			msf = #update_msf(cond, msf);
+			msf_s = #mov_msf(msf);
+			
+			// Convert to extended representation
+			p3_19 = ge25519_p1p1_to_p3_19(t);
+			// Get pointer to G multiples
+			pre2p = pre2;
+			
+			msf = #mov_msf(msf_s);
+			
+			// Handle negative window
+			cond = (slide_8 <s 0);
+			if(cond){
+				msf = #update_msf(cond, msf);
+				msf_s = #mov_msf(msf);
+				
+				// Convert to positive index
+				slide_8 = -slide_8;
+				// Ignore lsb with value 1
+				slide_8 = slide_8 >> 1;
+				// Multiply by 12 to get index to precomputed points
+				// Every point has size 12*(sizeof u64)
+				slide_64 = (64u)slide_8;
+				?{}, slide_64 = #IMULri ( slide_64, 12 );
+				
+				// Subtract the base point multiple
+				t = ge25519_nielssub_p1p1(p3_19, pre2p[slide_64: 12]);
+				
+				msf = #mov_msf(msf_s);
+			}
+			else{
+				msf = #update_msf(!cond, msf);
+				msf_s = #mov_msf(msf);
+				
+				// Convert as above
+				slide_8 = slide_8 >> 1;
+				slide_64 = (64u)slide_8;
+				?{}, slide_64 = #IMULri ( slide_64, 12 );
+				
+				// Add the base point multiple
+				t = ge25519_nielsadd_p1p1(p3_19, pre2p[slide_64: 12]);
+				
+				msf = #mov_msf(msf_s);
+			}
+		}
+		else{
+			msf = #update_msf(!cond, msf);
+		}
+		// Convert to projective representation
+		rs[0:12] = ge25519_p1p1_to_p2(t);
+		
+		k = ks;
+		k -= 1;
+	}
+	msf = #update_msf(!cond, msf);
+	
+	// Copy to the result point
+	for i=0 to 3
+	{
+		v_256 = #VMOVDQA_256(rs[:u256 i]);
+		r[:u256 i] = #VMOVDQA_256(v_256);
+	}
+	() = #declassify(r);
+	
+	return r, msf;
+}

@@ -1,0 +1,61 @@
+/**
+ * function __reduce4
+ * @param {reg u64[4]} h - lower limbs of the number
+ * @param {reg u64[4]} r - high limbs of the number
+ * @param {reg u64} _38 - constant 38
+ * @param {reg u64} z - constant 0
+ * @param {reg bool} cf - carry flag, must be 0
+ * @param {reg bool} of - overflow flag, must be 0
+ * @returns {reg u64[4]} - (r*2^256 + h) % p
+ * 
+ * This function reduces the number composed of r and h modulo p. Inputs are not consumed.
+ * The representation is:
+ * h = (2**256 * r + h) % p
+ * h = (  2**0*h0 +  2**64*h1 + 2**128*h2 + 2**192*h3 +
+ *      2**256*r0 + 2**320*r1 + 2**384*r2 + 2**448*r3 ) mod p
+*/
+inline fn __reduce4
+( reg u64[4] h,
+  reg u64[4] r,
+  reg u64 _38, // 38
+  reg u64 z, // zero
+  reg bool cf of // cf = 0 and of = 0
+) -> reg u64[4]
+{
+  reg u64 hi lo;
+
+  // Multiply high limbs by 38, as 2**256 = 38
+  // Use parallel overflow and carry flag to track carries
+  ( hi, lo )   = #MULX ( _38,  r[0] );
+  of, h[0]     = #ADOX ( h[0], lo, of );
+  cf, h[1]     = #ADCX ( h[1], hi, cf );
+
+  ( hi, lo )   = #MULX ( _38,  r[1] );
+  of, h[1]     = #ADOX ( h[1], lo, of );
+  cf, h[2]     = #ADCX ( h[2], hi, cf );
+
+  ( hi, lo )   = #MULX ( _38,  r[2] );
+  of, h[2]     = #ADOX ( h[2], lo, of );
+  cf, h[3]     = #ADCX ( h[3], hi, cf );
+
+  ( r[0], lo ) = #MULX ( _38, r[3] );
+  of, h[3]     = #ADOX ( h[3], lo, of );
+  
+  cf, r[0]     = #ADCX ( r[0], z, cf ); 
+  of, r[0]     = #ADOX ( r[0], z, of );
+  // of, cf = 0, as r[0] < 64
+  
+  // Shift MSB in reduced limb, as p < 2**255
+  // Multiplys by 2
+  ?{}, r[0] = #SHLD(r[0], h[3], 1);
+  h[3] &= mask63;
+  
+  // Multiply limb by 19, for total multiplication with 38
+  ?{}, r[0] = #IMULri ( r[0], 19 );
+  cf, h[0] += r[0];
+  cf, h[1] += z + cf;
+  cf, h[2] += z + cf;
+  cf, h[3] += z + cf;
+
+  return h;
+}

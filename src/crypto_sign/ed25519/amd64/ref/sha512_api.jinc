@@ -1,0 +1,214 @@
+/*
+State:
+0-15: Buffered message (128 bytes)
+16-23: Internal SHA state (64 bytes)
+24: Input Length (1 byte)
+*/
+
+require "sha512.jinc"
+require "sha512_globals.jinc"
+
+/**
+ * function sha512_init
+ * @param {stack u64[25]} pstate - Iterative-API state structure
+ * @returns {stack u64[25]} - Initialized iterative-API state structure
+ *
+ * This function initializes a iterative-API state structure.
+*/
+fn sha512_init(reg ptr u64[25] pstate) -> reg ptr u64[25]
+{
+  inline int i;
+  reg ptr u64[8] Hp;
+  reg u64 v;
+
+  Hp = SHA512_H;
+
+  for i=0 to 16
+  {
+    pstate[i] = 0;
+  }
+  
+  for i=0 to 8{
+    v = Hp[i];
+    pstate[16 + i] = v;
+  }
+  
+  pstate[24] = 0;
+  
+  return pstate;
+}
+
+/**
+ * function sha512_update_32
+ * @param {reg ptr u64[25]} pstate - Iterative-API state structure
+ * @param {reg u64[4]} m - 32 bytes of message in registers
+ * @returns {reg ptr u64[25]} - Updated iterative-API state structure
+ *
+ * This function digests a 32-byte message in 4 64-bit registers with
+ * the current state H (pstate 16-24) and the remaining bytes (pstate 0-16)
+ * using the SHA-512 compression function.
+*/
+fn sha512_update_32(reg ptr u64[25] pstate, reg u64[4] m) -> reg ptr u64[25]
+{
+  reg u64 mod_len i total_len;
+  stack u8[32] m_s;
+
+  // Update len	
+  total_len = pstate[24];
+  mod_len = total_len;
+  total_len += 32;
+  pstate[24] = total_len;
+  
+  // Determine end of the current buffered content
+  mod_len = mod_len & 0x7f;
+  
+  // Copy message to the stack for byte-level access
+  m_s = #copy(m);
+  
+  i = 0;
+  // This branch is taken if the buffer would overflow
+  if (mod_len > 128 - 32 - 1) {
+    // Write until the buffer is full
+    while (mod_len < 128) {
+      pstate[:u8 mod_len] = m_s[:u8 i];
+      mod_len += 1;
+      i += 1;
+    }
+    
+    () = #spill(i);
+    
+    // Digest the state
+    pstate = _blocks_0_ref(pstate);
+    mod_len = 0;
+    
+    () = #unspill(i);
+    
+    // Write remaining bytes
+    while (i < 32) {
+      pstate[:u8 mod_len] = m_s[:u8 i];
+      mod_len += 1;
+      i += 1;
+    }
+  }
+  // This branch is taken if we can just write 32 bytes
+  else {
+    while (i < 32) {
+      pstate[:u8 mod_len] = m_s[:u8 i];
+      mod_len += 1;
+      i += 1;
+    }
+  }
+
+  return pstate;
+}
+
+/**
+ * function sha512_update_ext
+ * @param {reg ptr u64[25]} pstate - Iterative-API state structure
+ * @param {reg u64} m - Pointer to the external message
+ * @param {reg u64} inlen - Length of the message
+ * @returns {reg ptr u64[25]} - Updated iterative-API state structure
+ *
+ * This function digests the external message m with the current state H (pstate 16-24)
+ * and the remaining bytes (pstate 0-16) using the SHA-512 compression function.
+*/
+fn sha512_update_ext(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen) -> reg ptr u64[25]
+{
+  reg u64 digested_bytes mod_len total_len iterations;
+  reg u64 j;	
+
+  // Update len
+  total_len = pstate[24];
+  mod_len = total_len;
+  total_len = total_len + inlen;
+  pstate[24] = total_len;
+  
+  // Determine end of the current buffered content
+  mod_len = mod_len & 0x7f;
+  // Determine the number of iterations to digest all bytes
+  digested_bytes = inlen;
+  digested_bytes += mod_len;
+  iterations = digested_bytes >> 7;
+  
+  j = iterations;
+  while (j != 0) {
+    // Copy bytes until the buffer is full
+    while (mod_len < 128) {
+      pstate[:u8 mod_len] = [:u8 m];
+      mod_len += 1;
+      m += 1;
+      inlen -= 1;
+    }
+    
+    () = #spill(m, mod_len, inlen, j);
+
+    // Digest
+    pstate = _blocks_0_ref(pstate);
+    
+    () = #unspill(m, mod_len, inlen, j);
+    mod_len = 0;
+    j -= 1;
+  }
+
+  // Copy remaining bytes to the buffer
+  while (inlen > 0) {
+    pstate[:u8 mod_len] = [:u8 m];
+    mod_len += 1;
+    m += 1;
+    inlen -= 1;
+  }
+  return pstate;
+}
+
+/**
+ * function sha512_finalize
+ * @param {reg ptr u64[25]} pstate - Iterative-API state structure
+ * @returns {reg u64[8]} - Hash value
+ * This function computes the hash of
+ * the current state H (pstate 16-24) with
+ * the remaining bytes (pstate 0-16)
+*/
+fn sha512_finalize(reg ptr u64[25] pstate, reg ptr u64[8] Hreg) -> reg ptr u64[8]
+{
+  reg u64 bits len mod_len nblocks;
+  reg u64 h;
+  stack u8[128] in;
+  stack u64[8] H;
+  stack u64[32] sblocks;
+  inline int i;
+
+  () = #spill(Hreg);
+  
+  for i = 0 to 16{
+    in[:u64 i] = pstate[i];
+  }
+  
+  len = pstate[24];
+  bits = len;
+  // Compute number of remaining bytes
+  mod_len = len & 0x7f;
+  mod_len = mod_len;
+  // Compute number of digested bits
+  bits = bits << 3;
+  
+  // Compute SHA-512 padding
+  sblocks, nblocks = __lastblocks_ref(in, mod_len, bits);
+
+  for i=0 to 8{
+    H[i] = pstate[16 + i];
+  }
+  
+  // Digest remaining blocks
+  H = _blocks_1_ref(H, sblocks, nblocks);
+
+  () = #unspill(Hreg);
+  
+  // Swap endianess of the output
+  for i=0 to 8{
+    h = H[i];
+    h = #BSWAP_64(h);
+    Hreg[i] = h;
+  }
+
+  return Hreg;
+}

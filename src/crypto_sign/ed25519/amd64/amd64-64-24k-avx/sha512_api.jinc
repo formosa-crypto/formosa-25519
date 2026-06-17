@@ -1,0 +1,310 @@
+/*
+State:
+0-15: Buffered message (128 bytes)
+16-23: Internal SHA state (64 bytes)
+24: Input Length (1 byte)
+*/
+
+require "sha512.jinc"
+require "sha512_globals.jinc"
+
+/**
+ * function sha512_init
+ * @param {stack u64[25]} pstate - Iterative-API state structure
+ * @returns {stack u64[25]} - Initialized iterative-API state structure
+ *
+ * This function initializes a iterative-API state structure.
+*/
+inline fn sha512_init(stack u64[25] pstate) -> stack u64[25]
+{
+  inline int i;
+  reg ptr u64[8] Hp;
+  reg u256 z v_256;
+
+  Hp = SHA512_H;
+  z = #set0_256();
+  
+  for i=0 to 4
+  { pstate[:u256 i] = z; }
+  
+  for i=0 to 2
+  { v_256 = Hp[:u256 i];
+    pstate[:u256 (4 + i)] = v_256; }
+  
+  pstate[24] = 0;
+  
+  return pstate;
+}
+
+/**
+ * function sha512_update_ext_32
+ * @param {reg ptr u64[25]} pstate - Iterative-API state structure
+ * @param {reg u64} m - Pointer to the external message
+ * @param {reg u64} inlen - Length of the message
+ * @returns {reg ptr u64[25]} - Updated iterative-API state structure
+ *
+ * This function digests the external message m with the current state H (pstate 16-24)
+ * and the remaining bytes (pstate 0-16) using the SHA-512 compression function.
+ * This function can be applied, if exactly 32-bytes are in the pstate buffer.
+*/
+#[sct="{ ptr: public, val: { n: secret, s:secret } } * public * secret * msf -> { ptr: public, val: { n: secret, s:secret } } * msf"]
+fn sha512_update_ext_32(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen, #[msf] reg u64 msf) -> reg ptr u64[25], #[msf] reg u64
+{
+  reg u64 iterations total_len;
+  #[spill_to_mmx] reg u64 j;
+  reg u64[8] H_r;
+  reg u256[4] m_buf dig_buf;
+  reg u256[1] m_shift;
+  stack ptr u64[25] pstate_s;
+  reg bool zf;
+  inline int k;
+
+  // Prevent speculative loads
+  m = #protect(m, msf);
+
+  // Load 128-byte block of the message
+  m_buf[0] = [:u256 m];
+  m_buf[1] = [:u256 (m + 32)];
+  m_buf[2] = [:u256 (m + 64)];
+  m_buf[3] = [:u256 (m + 96)];
+  
+  // Load set bytes of the state
+  m_shift[0] = #VMOVDQA_256(pstate[:u256 0]);
+
+  // Load current digest
+  for k=0 to 8
+  { H_r[k] = pstate[16+k]; }
+  
+  // Update number of digested bytes
+  inlen = inlen;
+  total_len = pstate[24];
+  total_len = total_len + inlen;
+  pstate[24] = total_len;
+  
+  // Compute the number of required iterations
+
+  iterations = inlen + 32;
+  iterations = iterations >> 7;
+
+  j = iterations;
+  () = #declassify(j);
+  j = #protect(j, msf);
+  zf = (j == 0);
+  
+  pstate_s = pstate;
+
+  // Digest until less than 128 bytes can be written in the pstate buffer
+  while (!zf) {
+    msf = #update_msf(!zf, msf);
+    
+    // Read next 128 bytes
+    m = #LEA(m + 128);
+    
+    // Load buffer that is digested next
+    dig_buf[0] = m_shift[0];
+    dig_buf[1] = m_buf[0];
+    dig_buf[2] = m_buf[1];
+    dig_buf[3] = m_buf[2];
+    
+    // Prestore next message chunks for the next round
+    () = #spill(j);
+    m_shift[0] = m_buf[3];
+    m_buf[0] = [:u256 m];
+    m_buf[1] = [:u256 (m + 32)];
+    m_buf[2] = [:u256 (m + 64)];
+    m_buf[3] = [:u256 (m + 96)];
+    
+    // Digest the current message
+    H_r, msf = __inner_sha(H_r, dig_buf, msf);
+    () = #unspill(j);
+    
+    ?{ZF = zf}, j = #DEC(j);
+  }
+  msf = #update_msf(zf, msf);
+
+  pstate = pstate_s;
+
+  // Store the digest
+  for k=0 to 8
+  {
+    pstate[:u64 (16+k)] = H_r[k];
+  }
+  
+  dig_buf[0] = m_shift[0];
+  dig_buf[1] = m_buf[0];
+  dig_buf[2] = m_buf[1];
+  dig_buf[3] = m_buf[2];
+  
+  // Store the leftover bytes
+  for k=0 to 4
+  {
+    pstate[:u256 k] = #VMOVDQA_256(dig_buf[k]);
+  }
+
+  return pstate, msf;
+}
+
+/**
+ * function sha512_update_ext_64
+ * @param {reg ptr u64[25]} pstate - Iterative-API state structure
+ * @param {reg u64} m - Pointer to the external message
+ * @param {reg u64} inlen - Length of the message
+ * @returns {reg ptr u64[25]} - Updated iterative-API state structure
+ *
+ * This function digests the external message m with the current state H (pstate 16-24)
+ * and the remaining bytes (pstate 0-16) using the SHA-512 compression function.
+ * This function can be applied, if exactly 64-bytes are in the pstate buffer.
+*/
+#[sct="{ ptr: public, val: { n: secret, s:secret } } * public * secret * msf -> { ptr: public, val: { n: secret, s:secret } } * msf"]
+fn sha512_update_ext_64(reg ptr u64[25] pstate, reg u64 m, reg u64 inlen, #[msf] reg u64 msf) -> reg ptr u64[25], #[msf] reg u64
+{
+  reg u64 iterations total_len;
+  #[spill_to_mmx] reg u64 j;
+  reg u64[8] H_r;
+  reg u256[4] m_buf dig_buf;
+  reg u256[2] m_shift;
+  stack ptr u64[25] pstate_s;
+  reg bool zf;
+  inline int k;
+  
+  // Prevent speculative loads
+  m = #protect(m, msf);
+
+  // Load 128-byte block of the message
+  m_buf[0] = [:u256 m];
+  m_buf[1] = [:u256 (m + 32)];
+  m_buf[2] = [:u256 (m + 64)];
+  m_buf[3] = [:u256 (m + 96)];
+  
+  // Load set bytes of the state
+  m_shift[0] = #VMOVDQA_256(pstate[:u256 0]);
+  m_shift[1] = #VMOVDQA_256(pstate[:u256 1]);
+  
+  // Load current digest
+  for k=0 to 8
+  { H_r[k] = pstate[16+k]; }
+  
+  // Update number of digested bytes
+  inlen = inlen;
+  total_len = pstate[24];
+  total_len = total_len + inlen;
+  pstate[24] = total_len;
+  
+  // Compute the number of required iterations
+  iterations = inlen + 64;
+  iterations = iterations >> 7;
+
+  j = iterations;
+  () = #declassify(j);
+  j = #protect(j, msf);
+  zf = (j == 0);
+  
+  pstate_s = pstate;
+  
+  // Digest until less than 128 bytes can be written in the pstate buffer
+  while (!zf) {
+    msf = #update_msf(!zf, msf);
+    
+    // Read next 128 bytes
+    m = #LEA(m + 128);
+    
+    // Load buffer that is digested next
+    dig_buf[0] = m_shift[0];
+    dig_buf[1] = m_shift[1];
+    dig_buf[2] = m_buf[0];
+    dig_buf[3] = m_buf[1];
+    
+    () = #spill(j);
+    
+    // Prestore next message chunks for the next round
+    m_shift[0] = m_buf[2];
+    m_shift[1] = m_buf[3];
+    m_buf[0] = [:u256 m];
+    m_buf[1] = [:u256 (m + 32)];
+    m_buf[2] = [:u256 (m + 64)];
+    
+    // Digest the current message
+    H_r, msf = __inner_sha(H_r, dig_buf, msf);
+    () = #unspill(j);
+    
+    m_buf[3] = [:u256 (m + 96)];
+    
+    ?{ZF = zf}, j = #DEC(j);
+  }
+  msf = #update_msf(zf, msf);
+
+  pstate = pstate_s;
+
+  // Store the digest
+  for k=0 to 8
+  {
+    pstate[:u64 (16+k)] = H_r[k];
+  }
+  
+  // Store the leftover bytes
+  dig_buf[0] = m_shift[0];
+  dig_buf[1] = m_shift[1];
+  dig_buf[2] = m_buf[0];
+  dig_buf[3] = m_buf[1];
+
+  for k=0 to 4
+  {
+    pstate[:u256 k] = #VMOVDQA_256(dig_buf[k]);
+  }
+
+  return pstate, msf;
+}
+
+/**
+ * function sha512_finalize
+ * @param {reg ptr u64[25]} pstate - Iterative-API state structure
+ * @returns {reg u64[8]} - Hash value
+ * This function computes the hash of
+ * the current state H (pstate 16-24) with
+ * the remaining bytes (pstate 0-16)
+*/
+fn sha512_finalize(reg ptr u64[25] pstate, #[msf] reg u64 msf) -> reg u64[8], #[msf] reg u64
+{
+  reg u64 len mod_len nblocks temp;
+  reg u128 bswap_128 v_128;
+  reg u256 v_256;
+  reg u64[8] H_r;
+  stack u8[128] in;
+  stack u64[32] sblocks;
+  inline int i;
+  
+  // Load remaining message bytes
+  for i = 0 to 4{
+    v_256 = #VMOVDQA_256(pstate[:u256 i]);
+    in[:u256 i] = #VMOVDQA_256(v_256);
+  }
+  
+  // Get number of used bytes in the state (modlen) and bitcount (temp)
+  len = pstate[24];
+  temp = len;
+  mod_len = len & 0x7f;
+  temp = temp << 3;
+  
+  // Compute padding
+  sblocks, nblocks, msf = __lastblocks_ref(in, mod_len, temp, msf);
+  
+  // Load current hash
+  for i=0 to 8
+  { H_r[i] = pstate[16+i]; }
+  
+  // Compute the final hash
+  H_r, msf = _blocks_1_ref(H_r, sblocks, nblocks, msf);
+  
+  // Swap the endianess of all blocks
+  bswap_128 = (128u)bswap_indices;
+  for i=0 to 4
+  { 
+    v_128 = #VMOV(H_r[2*i]);
+    v_128 = #VPINSR_2u64(v_128, H_r[2*i+1], 1);
+    v_128 = #VPSHUFB_128(v_128, bswap_128);
+    H_r[2*i] = #VPEXTR_64(v_128, 0);
+    H_r[2*i+1] = #VPEXTR_64(v_128, 1);
+  }
+ 
+  return H_r, msf;
+}

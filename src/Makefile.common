@@ -46,7 +46,7 @@ endif
 JASMIN ?= jasminc
 
 JEXT ?= jazz
-override JFLAGS += -stack-zero loopSCT -noinsertarraycopy
+override JFLAGS += -stack-zero loopSCT -noinsertarraycopy -noinsertrenaming
 
 JASMIN_COMPILE = ($(JASMIN) $(JFLAGS) -o $@ $<) $(CI_CMD)
 

@@ -1,0 +1,25 @@
+/**
+ * function __decode_scalar
+ * @param {u64[8]} k - SHA-512 hash of the secret key
+ * @returns {u64[4]} - Valid Ed25519 secret scalar
+ * 
+ * This function clears the MSB and LSBs as required by
+ * the standard to produce a valid Ed25519 scalar
+ */
+
+inline fn __decode_scalar(reg u64[8] k) -> stack u64[4]
+{
+  stack u64[4] ks;
+  inline int i;
+  
+  for i=0 to 4
+  { 
+    ks[i] =  k[i];
+  }
+
+  ks[:u8 0]  &= 0xf8;
+  ks[:u8 31] &= 0x3f;
+  ks[:u8 31] |= 0x40;
+	
+  return ks;
+}

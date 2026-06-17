@@ -1,0 +1,59 @@
+require "shared_const.jinc"
+
+require "mul4.jinc"
+require "invert4.jinc"
+require "fe25519_pack.jinc"
+require "fe25519_freeze.jinc"
+
+/**
+ * function ge25519_pack
+ * @param {stack u64[12]} pp - Point in projective representation
+ * @returns {reg u256} - Compressed input
+ * 
+ * This function packs the input point p into a 256-bit representation.
+*/
+inline fn ge25519_pack(stack u64[12] pp, #[msf] reg u64 msf) -> reg u256, #[msf] reg u64
+{
+	reg u8 par;						// parity
+	reg u256 res;					// result
+	reg u64[4] rx ry rz;		// coordinates
+	stack u64[4] rxs rzs;	// coordinates (stack)
+	stack u8[32] rs;				// Result
+	inline int i;
+	#[mmx] reg u64 msf_s;
+	
+	// Invert z coordinate
+	for i=0 to 4
+	{ rz[i] = pp[8 + i]; }
+	rz, msf = __invert4(rz, msf);
+  msf_s = #mov_msf(msf);
+	rzs = #copy(rz);
+	
+	// Multiply x,y coordinate by z^{-1} to get (x,y) representation
+	rxs = __mul4_ssr(pp[0:4], rz);
+	ry = __mul4_rss(pp[4:4], rzs);
+  
+  // Reduce x,y below p
+  rx = #copy(rxs);
+	ry = __freeze4_rr(ry);
+	rx = __freeze4_rr(rx);
+	msf = #mov_msf(msf_s);
+	
+	// Packed representation
+	// Bits 0-254: y coordinate
+	// Bit 255: Parity of x coordinate
+	for i=0 to 4
+	{
+		rs[:u64 i] = ry[i];
+	}
+	
+	// Compute and add parity
+	par = (8u)rx[0];
+  par = par & 1;
+  par = par << 7;
+  rs[31] ^= par;
+  
+  res = rs[:u256 0];
+  
+  return res, msf;
+}

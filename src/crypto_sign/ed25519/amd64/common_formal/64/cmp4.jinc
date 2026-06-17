@@ -1,0 +1,52 @@
+fn __cmp4_rr(reg u64[4] a b) -> reg u8
+	ensures #[prover=smt] {
+     (result.0 == 1) && (\all (ii \in 0:4) (a[ii] == b[ii])) ||
+     (result.0 == 0) && (\exists (ii \in 0:4) (!(a[ii] == b[ii])))
+  }
+{
+	reg u8 res;
+	reg u16 res_16 z_16;
+	reg u64[4] c;
+	reg bool zf;
+	inline int i;
+	
+	c = #copy(a);
+	
+	res_16 = 1;
+	?{}, z_16 = #set0_16();
+	for i = 0 to 4
+	{
+	  ?{ "==" = zf }, c[i] = #XOR_64(c[i], b[i]);
+	  res_16 = #CMOVcc_16(!zf, z_16, res_16);
+	}
+	
+	res = (8u)res_16;
+	
+	return res;
+}
+
+inline fn __cmp4_ss(stack u64[4] a b) -> reg u8{
+	
+	reg u64[4] ar br;
+	reg u8 res;
+	
+	ar = #copy(a);
+	br = #copy(b);
+	
+	res = __cmp4_rr(ar, br);
+	
+	return res;
+}
+
+inline fn __cmp4_ps(reg ptr u64[4] a, stack u64[4] b) -> reg u8{
+	
+	reg u64[4] ar br;
+	reg u8 res;
+	
+	ar = #copy(a);
+	br = #copy(b);
+	
+	res = __cmp4_rr(ar, br);
+	
+	return res;
+}

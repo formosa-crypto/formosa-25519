@@ -1,0 +1,853 @@
+require "reduce5.jinc"
+
+// Multiply limb 0
+inline fn __mul5_c0
+( reg u64    f0,
+  reg u64[4] g,
+  reg u64    z, // zero
+  reg bool   cf of // cf = 0 and of = 0
+  ) ->
+  reg u64[4],
+  reg u64[4],
+  reg bool,
+  reg bool
+{
+  reg u64 lo;
+  reg u64[4] h r;
+
+  (h[1], h[0]) = #MULX ( f0, g[0] );
+
+  ( h[2], lo ) = #MULX ( f0, g[1] );
+    cf, h[1]   = #ADCX ( h[1], lo, cf );
+
+  ( h[3], lo ) = #MULX ( f0, g[2] );
+    cf, h[2]   = #ADCX ( h[2], lo, cf );
+
+  ( r[0], lo ) = #MULX ( f0, g[3] );
+    cf, h[3]   = #ADCX ( h[3], lo, cf );
+
+  cf, r[0] = #ADCX ( r[0], z, cf ); // cf = 0
+
+  return h, r, cf, of;
+}
+
+// Multiply limb 1
+inline fn __mul5_c1
+( reg u64[4] h,
+  reg u64[4] r,
+  reg u64    f,
+  reg u64[4] g,
+  reg u64    z, // zero
+  reg bool   cf of // cf = 0 and of = 0
+  ) ->
+  reg u64[4],
+  reg u64[4],
+  reg bool,
+  reg bool
+{
+  reg u64 hi lo;
+
+  ( hi, lo )   = #MULX ( f, g[0] );
+  of, h[1]     = #ADOX ( h[1], lo, of );
+  cf, h[2]     = #ADCX ( h[2], hi, cf );
+
+  ( hi, lo )   = #MULX ( f, g[1] );
+  of, h[2]     = #ADOX ( h[2], lo, of );
+  cf, h[3]     = #ADCX ( h[3], hi, cf );
+
+  ( hi, lo )   = #MULX ( f, g[2] );
+  of, h[3]     = #ADOX ( h[3], lo, of );
+  cf, r[0]     = #ADCX ( r[0], hi, cf );
+
+  ( r[1], lo ) = #MULX ( f, g[3] );
+  of, r[0]     = #ADOX ( r[0], lo, of);
+
+  cf, r[1]     = #ADCX ( r[1], z, cf);
+  of, r[1]     = #ADOX ( r[1], z, of);
+
+  return h, r, cf, of;
+}
+
+// Multiply limb 2
+inline fn __mul5_c2
+( reg u64[4] h,
+  reg u64[4] r,
+  reg u64    f,
+  reg u64[4] g,
+  reg u64    z, // zero
+  reg bool   cf of // cf = 0 and of = 0
+  ) ->
+  reg u64[4],
+  reg u64[4],
+  reg bool,
+  reg bool
+{
+  reg u64 hi lo;
+
+  ( hi, lo )   = #MULX ( f, g[0] );
+  of, h[2]     = #ADOX ( h[2], lo, of );
+  cf, h[3]     = #ADCX ( h[3], hi, cf );
+
+  ( hi, lo )   = #MULX ( f, g[1] );
+  of, h[3]     = #ADOX ( h[3], lo, of );
+  cf, r[0]     = #ADCX ( r[0], hi, cf );
+
+  ( hi, lo )   = #MULX ( f, g[2] );
+  of, r[0]     = #ADOX ( r[0], lo, of );
+  cf, r[1]     = #ADCX ( r[1], hi, cf );
+
+  ( r[2], lo ) = #MULX ( f, g[3] );
+  of, r[1]     = #ADOX ( r[1], lo, of);
+
+  cf, r[2]     = #ADCX ( r[2], z, cf);
+  of, r[2]     = #ADOX ( r[2], z, of);
+
+  return h, r, cf, of;
+}
+
+// Multiply limb 3
+inline fn __mul5_c3
+( reg u64[4] h,
+  reg u64[4] r,
+  reg u64    f,
+  reg u64[4] g,
+  reg u64    z, // zero
+  reg bool   cf of // cf = 0 and of = 0
+  ) ->
+  reg u64[4],
+  reg u64[4],
+  reg bool,
+  reg bool
+{
+  reg u64 hi lo;
+
+  ( hi, lo )   = #MULX ( f, g[0] );
+  of, h[3]     = #ADOX ( h[3], lo, of );
+  cf, r[0]     = #ADCX ( r[0], hi, cf );
+
+  ( hi, lo )   = #MULX ( f, g[1] );
+  of, r[0]     = #ADOX ( r[0], lo, of );
+  cf, r[1]     = #ADCX ( r[1], hi, cf );
+
+  ( hi, lo )   = #MULX ( f, g[2] );
+  of, r[1]     = #ADOX ( r[1], lo, of );
+  cf, r[2]     = #ADCX ( r[2], hi, cf );
+
+  ( r[3], lo ) = #MULX ( f, g[3] );
+  of, r[2]     = #ADOX ( r[2], lo, of);
+
+  cf, r[3]     = #ADCX ( r[3], z, cf);
+  of, r[3]     = #ADOX ( r[3], z, of);
+
+  return h, r, cf, of;
+}
+
+/**
+ * function __mul5_rsr
+ * @param {stack u64[4]} fs - ptr to first factor in 64-bit limb representation
+ * @param {reg u64[4]} g - second factor in 64-bit limb representation
+ * @returns {reg u64[5]} - Product of f and g in 64-bit limb representation
+ * 
+ * This function multiplies the two numbers in f and g modulo p. The result is just
+ * reduced below 2^(256+6) for efficiency. Inputs remain unchanged.
+ * The representation is:
+ * h = f * g
+ * h = (2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_rsr(stack u64[4] fs, reg u64[4] g) -> reg u64[5]
+{
+  reg bool cf of;
+  reg u64[4] h r;
+  reg u64[5] red_h;
+  reg u64 _38 f z;
+  
+  // Setup
+  of, cf, _, _, _, z = #set0();
+  
+  // (r 2^256 + h) = fs*g
+  f = fs[0];
+  h, r, cf, of = __mul5_c0(      f, g, z, cf, of);
+
+  f = fs[1];
+  h, r, cf, of = __mul5_c1(h, r, f, g, z, cf, of);
+
+  f = fs[2];
+  h, r, cf, of = __mul5_c2(h, r, f, g, z, cf, of);
+
+  f = fs[3];
+  h, r, cf, of = __mul5_c3(h, r, f, g, z, cf, of);
+  
+  // Reduce modulo 2^8*p
+  _38 = 38;
+  red_h = __reduce5(h, r, _38, z, cf, of);
+
+  return red_h;
+}
+
+/**
+ * function __mul5_rss
+ * @param {stack u64[4]} fs - ptr to first factor in 64-bit limb representation
+ * @param {stack u64[4]} gs - ptr to second factor in 64-bit limb representation
+ * @returns {reg u64[5]} - Product of f and g in 64-bit limb representation
+ * 
+ * This function multiplies the two numbers in f and g modulo p. The result is just
+ * reduced below 2^(256+6) for efficiency. Inputs remain unchanged.
+ * The representation is:
+ * h = f * g
+ * h = (2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_rss(stack u64[4] fs, stack u64[4] gs) -> reg u64[5]
+{
+  reg u64[5] h;
+  reg u64[4] g;
+  
+  g = #copy(gs);
+  h = __mul5_rsr(fs, g);
+  
+  return h;
+}
+
+/**
+ * function __mul5_ssr
+ * @param {stack u64[4]} fs - ptr to first factor in 64-bit limb representation
+ * @param {reg u64[4]} g - Second factor in 64-bit limb representation
+ * @returns {stack u64[5]} - ptr to product of f and g in 64-bit limb representation
+ * 
+ * This function multiplies the two numbers in f and g modulo p. The result is just
+ * reduced below 2^(256+6) for efficiency. Inputs remain unchanged.
+ * The representation is:
+ * h = f * g
+ * h = (2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_ssr(stack u64[4] fs, reg u64[4] g) -> stack u64[5]
+{
+  reg u64[5] h;
+  stack u64[5] hs;
+  
+  h = __mul5_rsr(fs, g);
+  hs = #copy(h);
+  
+  return hs;
+}
+
+/**
+ * function __mul5_sss
+ * @param {stack u64[4]} fs - ptr to first factor in 64-bit limb representation
+ * @param {stack u64[4]} g - ptr to second factor in 64-bit limb representation
+ * @returns {stack u64[5]} - ptr to product of f and g in 64-bit limb representation
+ * 
+ * This function multiplies the two numbers in f and g modulo p. The result is just
+ * reduced below 2^(256+6) for efficiency. Inputs remain unchanged.
+ * The representation is:
+ * h = f * g
+ * h = (2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_sss(stack u64[4] fs, stack u64[4] gs) -> stack u64[5]
+{
+  reg u64[4] g;
+  reg u64[5] h;
+  stack u64[5] hs;
+  
+  g = #copy(gs);
+  h = __mul5_rsr(fs, g);
+  hs = #copy(h);
+  
+  return hs;
+}
+
+/**
+ * function __mul5_rp16r_x
+ * @param {reg ptr u64[16]} fp - ptr to point in extended niels coordinates
+ * @param {reg u64[4]} g - Second factor in 64-bit limb representation
+ * @returns {reg u64[5]} - Product of f.x and g in 64-bit limb representation
+ * 
+ * This function multiplies the ysubx-coordinate of a point in extended niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.x * g
+ * h = (2**0*f.x0 + 2**64*f.x1 + 2**128*f.x2 + 2**192*f.x3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_rp16r_x(reg ptr u64[16] fp, reg u64[4] g) -> reg u64[5]
+{
+  reg bool cf of;
+  reg u64[4] h r;
+  reg u64[5] red_h;
+  reg u64 _38 f z;
+  
+  // Setup
+  of, cf, _, _, _, z = #set0();
+  
+  // (r 2^256 + h) = fp.x*g
+  f = fp[0];
+  h, r, cf, of = __mul5_c0(      f, g, z, cf, of);
+
+  f = fp[1];
+  h, r, cf, of = __mul5_c1(h, r, f, g, z, cf, of);
+
+  f = fp[2];
+  h, r, cf, of = __mul5_c2(h, r, f, g, z, cf, of);
+
+  f = fp[3];
+  h, r, cf, of = __mul5_c3(h, r, f, g, z, cf, of);
+  
+  // Reduce modulo 2^8*p
+  _38 = 38;
+  red_h = __reduce5(h, r, _38, z, cf, of);
+
+  return red_h;
+}
+
+/**
+ * function __mul5_rp16r_y
+ * @param {reg ptr u64[16]} fp - ptr to point in extended niels coordinates
+ * @param {reg u64[4]} g - Second factor in 64-bit limb representation
+ * @returns {reg u64[5]} - Product of f.y and g in 64-bit limb representation
+ * 
+ * This function multiplies the xaddy-coordinate of a point in extended niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.y * g
+ * h = (2**0*f.y0 + 2**64*f.y1 + 2**128*f.y2 + 2**192*f.y3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_rp16r_y(reg ptr u64[16] fp, reg u64[4] g) -> reg u64[5]
+{
+  reg bool cf of;
+  reg u64[4] h r;
+  reg u64[5] red_h;
+  reg u64 _38 f z;
+  
+  // Setup
+  of, cf, _, _, _, z = #set0();
+  
+  // (r 2^256 + h) = fp.y*g
+  f = fp[4];
+  h, r, cf, of = __mul5_c0(      f, g, z, cf, of);
+
+  f = fp[5];
+  h, r, cf, of = __mul5_c1(h, r, f, g, z, cf, of);
+
+  f = fp[6];
+  h, r, cf, of = __mul5_c2(h, r, f, g, z, cf, of);
+
+  f = fp[7];
+  h, r, cf, of = __mul5_c3(h, r, f, g, z, cf, of);
+  
+  // Reduce modulo 2^8*p
+  _38 = 38;
+  red_h = __reduce5(h, r, _38, z, cf, of);
+
+  return red_h;
+}
+
+/**
+ * function __mul5_rp16r_z
+ * @param {reg ptr u64[16]} fp - ptr to point in extended niels coordinates
+ * @param {reg u64[4]} g - Second factor in 64-bit limb representation
+ * @returns {reg u64[5]} - Product of f.z and g in 64-bit limb representation
+ * 
+ * This function multiplies the z-coordinate of a point in extended niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.z * g
+ * h = (2**0*f.z0 + 2**64*f.z1 + 2**128*f.z2 + 2**192*f.z3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_rp16r_z(reg ptr u64[16] fp, reg u64[4] g) -> reg u64[5]
+{
+  reg bool cf of;
+  reg u64[4] h r;
+  reg u64[5] red_h;
+  reg u64 _38 f z;
+  
+  // Setup
+  of, cf, _, _, _, z = #set0();
+  
+  // (r 2^256 + h) = fp.z*g
+  f = fp[8];
+  h, r, cf, of = __mul5_c0(      f, g, z, cf, of);
+
+  f = fp[9];
+  h, r, cf, of = __mul5_c1(h, r, f, g, z, cf, of);
+
+  f = fp[10];
+  h, r, cf, of = __mul5_c2(h, r, f, g, z, cf, of);
+
+  f = fp[11];
+  h, r, cf, of = __mul5_c3(h, r, f, g, z, cf, of);
+  
+  // Reduce modulo 2^8*p
+  _38 = 38;
+  red_h = __reduce5(h, r, _38, z, cf, of);
+
+  return red_h;
+}
+
+/**
+ * function __mul5_rp16r_t
+ * @param {reg ptr u64[16]} fp - ptr to point in extended niels coordinates
+ * @param {reg u64[4]} g - Second factor in 64-bit limb representation
+ * @returns {reg u64[5]} - Product of f.t and g in 64-bit limb representation
+ * 
+ * This function multiplies the t2d-coordinate of a point in extended niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.t * g
+ * h = (2**0*f.t0 + 2**64*f.t1 + 2**128*f.t2 + 2**192*f.t3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_rp16r_t(reg ptr u64[16] fp, reg u64[4] g) -> reg u64[5]
+{
+  reg bool cf of;
+  reg u64[4] h r;
+  reg u64[5] red_h;
+  reg u64 _38 f z;
+  
+  // Setup
+  of, cf, _, _, _, z = #set0();
+  
+  // (r 2^256 + h) = fp.t*g
+  f = fp[12];
+  h, r, cf, of = __mul5_c0(      f, g, z, cf, of);
+
+  f = fp[13];
+  h, r, cf, of = __mul5_c1(h, r, f, g, z, cf, of);
+
+  f = fp[14];
+  h, r, cf, of = __mul5_c2(h, r, f, g, z, cf, of);
+
+  f = fp[15];
+  h, r, cf, of = __mul5_c3(h, r, f, g, z, cf, of);
+  
+  // Reduce modulo 2^8*p
+  _38 = 38;
+  red_h = __reduce5(h, r, _38, z, cf, of);
+
+  return red_h;
+}
+
+/**
+ * function __mul5_rp12r_x
+ * @param {reg ptr u64[12]} fp - ptr to point in projective niels coordinates
+ * @param {reg u64[4]} g - Second factor in 64-bit limb representation
+ * @returns {reg u64[5]} - Product of f.x and g in 64-bit limb representation
+ * 
+ * This function multiplies the ysubx-coordinate of a point in projective niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.x * g
+ * h = (2**0*f.x0 + 2**64*f.x1 + 2**128*f.x2 + 2**192*f.x3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_rp12r_x(reg ptr u64[12] fp, reg u64[4] g) -> reg u64[5]
+{
+  reg bool cf of;
+  reg u64[4] h r;
+  reg u64[5] red_h;
+  reg u64 _38 f z;
+  
+  // Setup
+  of, cf, _, _, _, z = #set0();
+  
+  // (r 2^256 + h) = fp.x*g
+  f = fp[0];
+  h, r, cf, of = __mul5_c0(      f, g, z, cf, of);
+
+  f = fp[1];
+  h, r, cf, of = __mul5_c1(h, r, f, g, z, cf, of);
+
+  f = fp[2];
+  h, r, cf, of = __mul5_c2(h, r, f, g, z, cf, of);
+
+  f = fp[3];
+  h, r, cf, of = __mul5_c3(h, r, f, g, z, cf, of);
+  
+  // Reduce modulo 2^8*p
+  _38 = 38;
+  red_h = __reduce5(h, r, _38, z, cf, of);
+
+  return red_h;
+}
+
+/**
+ * function __mul5_rp12r_y
+ * @param {reg ptr u64[12]} fp - ptr to point in projective niels coordinates
+ * @param {reg u64[4]} g - Second factor in 64-bit limb representation
+ * @returns {reg u64[5]} - Product of f.y and g in 64-bit limb representation
+ * 
+ * This function multiplies the xaddy-coordinate of a point in projective niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.y * g
+ * h = (2**0*f.y0 + 2**64*f.y1 + 2**128*f.y2 + 2**192*f.y3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_rp12r_y(reg ptr u64[12] fp, reg u64[4] g) -> reg u64[5]
+{
+  reg bool cf of;
+  reg u64[4] h r;
+  reg u64[5] red_h;
+  reg u64 _38 f z;
+  
+  // Setup
+  of, cf, _, _, _, z = #set0();
+  
+  // (r 2^256 + h) = fp.y*g
+  f = fp[4];
+  h, r, cf, of = __mul5_c0(      f, g, z, cf, of);
+
+  f = fp[5];
+  h, r, cf, of = __mul5_c1(h, r, f, g, z, cf, of);
+
+  f = fp[6];
+  h, r, cf, of = __mul5_c2(h, r, f, g, z, cf, of);
+
+  f = fp[7];
+  h, r, cf, of = __mul5_c3(h, r, f, g, z, cf, of);
+  
+  // Reduce modulo 2^8*p
+  _38 = 38;
+  red_h = __reduce5(h, r, _38, z, cf, of);
+
+  return red_h;
+}
+
+/**
+ * function __mul5_rp12r_z
+ * @param {reg ptr u64[12]} fp - ptr to point in projective niels coordinates
+ * @param {reg u64[4]} g - Second factor in 64-bit limb representation
+ * @returns {reg u64[5]} - ptr to product of f.z and g in 64-bit limb representation
+ * 
+ * This function multiplies the t2d-coordinate of a point in projective niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.t * g
+ * h = (2**0*f.t0 + 2**64*f.t1 + 2**128*f.t2 + 2**192*f.t3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_rp12r_z(reg ptr u64[12] fp, reg u64[4] g) -> reg u64[5]
+{
+  reg bool cf of;
+  reg u64[4] h r;
+  reg u64[5] red_h;
+  reg u64 _38 f z;
+  
+  // Setup
+  of, cf, _, _, _, z = #set0();
+
+  // (r 2^256 + h) = fp.t*g
+  f = fp[8];
+  h, r, cf, of = __mul5_c0(      f, g, z, cf, of);
+
+  f = fp[9];
+  h, r, cf, of = __mul5_c1(h, r, f, g, z, cf, of);
+
+  f = fp[10];
+  h, r, cf, of = __mul5_c2(h, r, f, g, z, cf, of);
+
+  f = fp[11];
+  h, r, cf, of = __mul5_c3(h, r, f, g, z, cf, of);
+  
+  // Reduce modulo 2^8*p
+  _38 = 38;
+  red_h = __reduce5(h, r, _38, z, cf, of);
+
+  return red_h;
+}
+
+/**
+ * function __mul5_rp12s_x
+ * @param {reg ptr u64[12]} fp - ptr to point in projective niels coordinates
+ * @param {stack u64[4]} gs - ptr to second factor in 64-bit limb representation
+ * @returns {reg u64[5]} - Product of f.x and g in 64-bit limb representation
+ * 
+ * This function multiplies the ysubx-coordinate of a point in projective niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.x * g
+ * h = (2**0*f.x0 + 2**64*f.x1 + 2**128*f.x2 + 2**192*f.x3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_rp12s_x(reg ptr u64[12] fp, stack u64[4] gs) -> reg u64[5]
+{
+  reg u64[4] g;
+  reg u64[5] h;
+  g = #copy(gs);
+  
+  h = __mul5_rp12r_x(fp, g);
+  
+  return h;
+}
+
+/**
+ * function __mul5_sp12s_x
+ * @param {reg ptr u64[12]} fp - ptr to point in projective niels coordinates
+ * @param {stack u64[4]} gs - ptr to second factor in 64-bit limb representation
+ * @returns {stack u64[5]} - ptr to product of f.x and g in 64-bit limb representation
+ * 
+ * This function multiplies the ysubx-coordinate of a point in projective niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.x * g
+ * h = (2**0*f.x0 + 2**64*f.x1 + 2**128*f.x2 + 2**192*f.x3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_sp12s_x(reg ptr u64[12] fp, stack u64[4] gs) -> stack u64[5]
+{
+  reg u64[4] g;
+  reg u64[5] h;
+  stack u64[5] hs;
+  
+  g = #copy(gs);
+  h = __mul5_rp12r_x(fp, g);
+  hs = #copy(h);
+  
+  return hs;
+}
+
+/**
+ * function __mul5_rp12s_y
+ * @param {reg ptr u64[12]} fp - ptr to point in projective niels coordinates
+ * @param {stack u64[4]} gs - ptr to second factor in 64-bit limb representation
+ * @returns {reg u64[5]} - Product of f.y and g in 64-bit limb representation
+ * 
+ * This function multiplies the xaddy-coordinate of a point in projective niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.y * g
+ * h = (2**0*f.y0 + 2**64*f.y1 + 2**128*f.y2 + 2**192*f.y3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_rp12s_y(reg ptr u64[12] fp, stack u64[4] gs) -> reg u64[5]
+{
+  reg u64[4] g;
+  reg u64[5] h;
+  
+  g = #copy(gs);
+  h = __mul5_rp12r_y(fp, g);
+  
+  return h;
+}
+
+/**
+ * function __mul5_sp12s_y
+ * @param {reg ptr u64[12]} fp - ptr to point in projective niels coordinates
+ * @param {stack u64[4]} g - ptr to second factor in 64-bit limb representation
+ * @returns {stack u64[5]} - ptr to product of f.y and g in 64-bit limb representation
+ * 
+ * This function multiplies the xaddy-coordinate of a point in projective niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.y * g
+ * h = (2**0*f.y0 + 2**64*f.y1 + 2**128*f.y2 + 2**192*f.y3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_sp12s_y(reg ptr u64[12] fp, stack u64[4] gs) -> stack u64[5]
+{
+  reg u64[4] g;
+  reg u64[5] h;
+  stack u64[5] hs;
+  
+  g = #copy(gs);
+  h = __mul5_rp12r_y(fp, g);
+  hs = #copy(h);
+  
+  return hs;
+}
+
+/**
+ * function __mul5_rp12s_z
+ * @param {reg ptr u64[12]} fp - ptr to point in projective niels coordinates
+ * @param {stack u64[4]} gs - ptr to second factor in 64-bit limb representation
+ * @returns {reg u64[5]} - Product of f.z and g in 64-bit limb representation
+ * 
+ * This function multiplies the t2d-coordinate of a point in projective niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.t * g
+ * h = (2**0*f.t0 + 2**64*f.t1 + 2**128*f.t2 + 2**192*f.t3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_rp12s_z(reg ptr u64[12] fp, stack u64[4] gs) -> reg u64[5]
+{
+  reg u64[4] g;
+  reg u64[5] h;
+  g = #copy(gs);
+  
+  h = __mul5_rp12r_z(fp, g);
+  
+  return h;
+}
+
+/**
+ * function __mul5_rp16s_x
+ * @param {reg ptr u64[16]} fp - ptr to point in extended niels coordinates
+ * @param {stack u64[4]} gs - ptr to second factor in 64-bit limb representation
+ * @returns {reg u64[5]} - Product of f.x and g in 64-bit limb representation
+ * 
+ * This function multiplies the ysubx-coordinate of a point in extended niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.x * g
+ * h = (2**0*f.x0 + 2**64*f.x1 + 2**128*f.x2 + 2**192*f.x3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_rp16s_x(reg ptr u64[16] fp, stack u64[4] gs) -> reg u64[5]
+{
+  reg u64[4] g;
+  reg u64[5] h;
+  g = #copy(gs);
+  
+  h = __mul5_rp16r_x(fp, g);
+  
+  return h;
+}
+
+/**
+ * function __mul5_sp16s_x
+ * @param {reg ptr u64[16]} fp - ptr to point in extended niels coordinates
+ * @param {stack [4]} g - ptr to second factor in 64-bit limb representation
+ * @returns {stack u64[5]} - ptr to product of f.x and g in 64-bit limb representation
+ * 
+ * This function multiplies the ysubx-coordinate of a point in extended niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.x * g
+ * h = (2**0*f.x0 + 2**64*f.x1 + 2**128*f.x2 + 2**192*f.x3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_sp16s_x(reg ptr u64[16] fp, stack u64[4] gs) -> stack u64[5]
+{
+  reg u64[4] g;
+  reg u64[5] h;
+  stack u64[5] hs;
+  
+  g = #copy(gs);
+  h = __mul5_rp16r_x(fp, g);
+  hs = #copy(h);
+  
+  return hs;
+}
+
+/**
+ * function __mul5_rp16s_y
+ * @param {reg ptr u64[16]} fp - ptr to point in extended niels coordinates
+ * @param {stack u64[4]} gs - ptr to second factor in 64-bit limb representation
+ * @returns {reg u64[5]} - Product of f.y and g in 64-bit limb representation
+ * 
+ * This function multiplies the xaddy-coordinate of a point in extended niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.y * g
+ * h = (2**0*f.y0 + 2**64*f.y1 + 2**128*f.y2 + 2**192*f.y3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_rp16s_y(reg ptr u64[16] fp, stack u64[4] gs) -> reg u64[5]
+{
+  reg u64[4] g;
+  reg u64[5] h;
+  g = #copy(gs);
+  
+  h = __mul5_rp16r_y(fp, g);
+  
+  return h;
+}
+
+/**
+ * function __mul5_sp16s_y
+ * @param {reg ptr u64[16]} fp - ptr to point in extended niels coordinates
+ * @param {stack u64[4]} gs - ptr to second factor in 64-bit limb representation
+ * @returns {stack u64[5]} - ptr to product of f.y and g in 64-bit limb representation
+ * 
+ * This function multiplies the xaddy-coordinate of a point in extended niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.y * g
+ * h = (2**0*f.y0 + 2**64*f.y1 + 2**128*f.y2 + 2**192*f.y3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_sp16s_y(reg ptr u64[16] fp, stack u64[4] gs) -> stack u64[5]
+{
+  reg u64[4] g;
+  reg u64[5] h;
+  stack u64[5] hs;
+  
+  g = #copy(gs);
+  h = __mul5_rp16r_y(fp, g);
+  hs = #copy(h);
+  
+  return hs;
+}
+
+/**
+ * function __mul5_rp16s_z
+ * @param {reg ptr u64[16]} fp - ptr to point in extended niels coordinates
+ * @param {stack u64[4]} g - ptr to second factor in 64-bit limb representation
+ * @returns {reg u64[5]} - Product of f.z and g in 64-bit limb representation
+ * 
+ * This function multiplies the z-coordinate of a point in extended niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.z * g
+ * h = (2**0*f.z0 + 2**64*f.z1 + 2**128*f.z2 + 2**192*f.z3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_rp16s_z(reg ptr u64[16] fp, stack u64[4] gs) -> reg u64[5]
+{
+  reg u64[4] g;
+  reg u64[5] h;
+  g = #copy(gs);
+  
+  h = __mul5_rp16r_z(fp, g);
+  
+  return h;
+}
+
+/**
+ * function __mul5_sp16s_t
+ * @param {reg ptr u64[16]} fp - ptr to point in extended niels coordinates
+ * @param {stack u64[4]} g - ptr to second factor in 64-bit limb representation
+ * @returns {stack u64[5]} - ptr to product of f.t and g in 64-bit limb representation
+ * 
+ * This function multiplies the t2d-coordinate of a point in extended niels coordinates with
+ * the number g and reduces the product below 2^(256+6). By having a point as input, 
+ * we save a register by avoiding a reg ptr on the coordinate. Inputs remain unchanged.
+ * The representation is:
+ * h = f.t * g
+ * h = (2**0*f.t0 + 2**64*f.t1 + 2**128*f.t2 + 2**192*f.t3) *
+ *     (2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3) mod (2^8*p)
+*/
+inline fn __mul5_sp16s_t(reg ptr u64[16] fp, stack u64[4] gs) -> stack u64[5]
+{
+  reg u64[4] g;
+  reg u64[5] h;
+  stack u64[5] hs;
+  
+  g = #copy(gs);
+  h = __mul5_rp16r_t(fp, g);
+  hs = #copy(h);
+  
+  return hs;
+}
