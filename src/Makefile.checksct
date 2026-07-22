@@ -6,7 +6,7 @@ JASMIN_CT ?= jasmin-ct
 
 ifneq ($(OP),)
 
-SCT_FLAGS ?= --infer
+SCT_FLAGS ?=
 
 CHECK_SCT_SLICE        = (JASMINPATH="formosa25519=$(SRC)" $(JASMIN_CT) --slice $* --sct $(SCT_FLAGS) $< > $@ 2>&1) $(CI_CMD)
 CHECK_SCT_SLICE_STDOUT = (JASMINPATH="formosa25519=$(SRC)" $(JASMIN_CT) --slice $* --sct $(SCT_FLAGS) $<          ) $(CI_CMD)

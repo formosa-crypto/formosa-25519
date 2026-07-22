@@ -1,5 +1,6 @@
 require "curve25519.jinc"
 
+#[sct = "{ ptr: transient, val: secret } × { ptr: transient, val: secret } × { ptr: transient, val: secret } → { ptr: public, val: secret } × public"]
 export fn jade_scalarmult_curve25519_amd64_mulx(
   #[spill_to_mmx] reg ptr u64[4] qp,
   reg ptr u64[4] np,
@@ -25,6 +26,7 @@ export fn jade_scalarmult_curve25519_amd64_mulx(
   return qp, r;
 }
 
+#[sct = "{ ptr: transient, val: secret } × { ptr: transient, val: secret } → { ptr: public, val: secret } × public"]
 export fn jade_scalarmult_curve25519_amd64_mulx_base(
   #[spill_to_mmx] reg ptr u64[4] qp,
   reg ptr u64[4] np)
