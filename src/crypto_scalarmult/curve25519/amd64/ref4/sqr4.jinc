@@ -67,7 +67,7 @@ inline fn __sqr4_rs(stack u64[4] xa) -> reg u64[4]
   cf, z[4] += z[4] + cf;
   cf, z[5] += z[5] + cf;
   cf, z[6] += z[6] + cf;
-  cf, z[7] += z[7] + cf;
+   _, z[7] += z[7] + cf;
 
   // x00 + x11 + x22 + x33
 
@@ -187,7 +187,7 @@ fn _sqr4_p(reg ptr u64[4] xa) -> reg ptr u64[4]
   cf, z[4] += z[4] + cf;
   cf, z[5] += z[5] + cf;
   cf, z[6] += z[6] + cf;
-  cf, z[7] += z[7] + cf;
+   _, z[7] += z[7] + cf;
 
   // x00 + x11 + x22 + x33
 

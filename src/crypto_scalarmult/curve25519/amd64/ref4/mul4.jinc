@@ -39,7 +39,7 @@ inline fn __mul4_rss(stack u64[4] xa ya) -> reg u64[4]
           hprev = #MOV(0);
           _, hprev += h + cf;
         } else { /* j = 4 */
-          cf, z[i + j + 1] += h + cf;
+          _, z[i + j + 1] += h + cf;
         }
       }
     }
@@ -103,7 +103,7 @@ fn _mul4_pp(reg ptr u64[4] xa ya) -> reg ptr u64[4]
           hprev = #MOV(0);
           _, hprev += h + cf;
         } else { /* j = 4 */
-          cf, z[i + j + 1] += h + cf;
+          _, z[i + j + 1] += h + cf;
         }
       }
     }

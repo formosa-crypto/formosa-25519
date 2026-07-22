@@ -24,8 +24,8 @@ inline fn __reduce4
   ( r[0], lo ) = #MULX ( _38, r[3] );
   of, h[3]     = #ADOX ( h[3], lo, of );
 
-  cf, r[0]     = #ADCX ( r[0], z, cf ); 
-  of, r[0]     = #ADOX ( r[0], z, of );
+   _, r[0]     = #ADCX ( r[0], z, cf );
+   _, r[0]     = #ADOX ( r[0], z, of );
 
   //
   _,_,_,_,_,lo = #IMULri ( r[0], 38 );
