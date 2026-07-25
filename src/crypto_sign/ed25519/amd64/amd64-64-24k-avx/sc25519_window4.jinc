@@ -1,0 +1,68 @@
+require "shared_const.jinc"
+
+/**
+ * function sc25519_window4
+ * @param {reg u64[4]} s - Scalar in 64-bit limb representation
+ * @returns {stack u8[64]} - The scalar in 4-bit windows
+ * 
+ * This functions computes a 4-bit window representation of the 256-bit scalar s.
+ * Each window lies in {-8,..,7} to make use of NAF.
+*/
+inline fn sc25519_window4(reg u64[4] s) -> stack u8[64]
+{
+	reg u8 carry_8 r_8 temp_8;
+	reg u128 v_128;
+	reg u256 v_256 w_256 r_low r_high;
+	stack u8[64] r;
+	reg bool cf;
+	inline int i;
+	
+	// Load v into an AVX2 register
+	v_128 = #VMOV(s[0]);
+	v_256 = (256u)#VPINSR_2u64(v_128, s[1], 1);
+	v_128 = #VMOV(s[2]);
+	v_128 = #VPINSR_2u64(v_128, s[3], 1);
+	v_256 = #VINSERTI128(v_256, v_128, 1);
+	
+	// v holds low 4 bits of each byte, w holds high 4 bits of each byte
+	w_256 = v_256;
+	v_256 = #VPAND_256(v_256, _15x32);
+	w_256 = #VPSRL_4u64(w_256, 4);
+	w_256 = #VPAND_256(w_256, _15x32);
+	
+	// Interleave v and w to get bits in the correct order
+	r_low = #VPUNPCKL_32u8(v_256, w_256);
+	r_high = #VPUNPCKH_32u8(v_256, w_256);
+	
+	// Swap middle elements (wrong due to AVX2)
+	r[:u256 0] = r_low;
+	r[:u256 1] = r_high;
+	r[:u128 2] = #VEXTRACTI128(r_low, 1);
+	r[:u128 1] = #VEXTRACTI128(r_high, 0);
+	
+	r_8 = r[0];
+	
+	// Iterate over all windows
+	for i=0 to 63
+	{
+		// Determine overflow to the next window
+		carry_8 = r_8;
+		r_8 &= 15;
+		carry_8 = carry_8 >>s 4;
+		
+		// Subtract 16 if bit 4 is set
+		temp_8 = r_8;
+		temp_8 = temp_8 + temp_8;
+		temp_8 = temp_8 & 0x10;
+		cf, r_8 -8u= temp_8;
+		r[i] = r_8;
+		
+		// Add carry and overflow to the next window
+		r_8 = r[i+1];
+		cf, r_8 +8u= 0 + cf;
+		r_8 += carry_8;
+	}
+	r[63] = r_8;
+	
+	return r;
+}

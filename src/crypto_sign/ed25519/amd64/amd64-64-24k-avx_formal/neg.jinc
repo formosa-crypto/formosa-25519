@@ -1,0 +1,71 @@
+require "shared_const.jinc"
+
+abstract predicate bool eqmod(int, int, tuple);
+abstract predicate tuple single(int);
+abstract predicate int u64i(u64);
+abstract predicate int b2i(bool);
+abstract predicate int pow(int, int);
+
+fn __neg5_rr(reg u64[5] a) -> reg u64[5]
+	requires #[prover=smt] {a[4] <u 64}
+	ensures #[prover=smt] {result.0[4] <u 128}
+	ensures #[prover=cas] {
+  eqmod (
+     \sum (ii \in 0:5) (pow(2, 64*ii)*u64i(result.0[ii])),
+     -(\sum (ii \in 0:5) (pow(2, 64*ii)*u64i(a[ii]))),
+     single((pow(2,255)) - 19)
+    )
+  }
+{
+	reg u64[5] b;
+	reg bool cf;
+	
+	b[0] = twoexp8_p0;
+	b[1] = twoexp8_p123;
+	b[2] = twoexp8_p123;
+	b[3] = twoexp8_p123;
+	b[4] = twoexp8_p4;
+	
+	cf, b[0] -= a[0];
+	cf, b[1] -= a[1] - cf;
+	cf, b[2] -= a[2] - cf;
+	cf, b[3] -= a[3] - cf;
+	cf, b[4] -= a[4] - cf;
+	
+	#[kind=Assert, prover=smt] assert (!cf);
+	#[kind=Assume, prover=cas] assert (b2i(cf) == 0);
+	 
+	return b;
+}
+
+fn __neg5_rs(reg ptr u64[5] a) -> reg u64[5]
+	requires #[prover=smt] {a[4] <u 64}
+	ensures #[prover=smt] {result.0[4] <u 128}
+	ensures #[prover=cas] {
+  eqmod (
+     \sum (ii \in 0:5) (pow(2, 64*ii)*u64i(result.0[ii])),
+     -(\sum (ii \in 0:5) (pow(2, 64*ii)*u64i(a[ii]))),
+     single((pow(2,255)) - 19)
+    )
+  }
+{
+	reg u64[5] b;
+	reg bool cf;
+	
+	b[0] = twoexp8_p0;
+	b[1] = twoexp8_p123;
+	b[2] = twoexp8_p123;
+	b[3] = twoexp8_p123;
+	b[4] = twoexp8_p4;
+	
+	cf, b[0] -= a[0];
+	cf, b[1] -= a[1] - cf;
+	cf, b[2] -= a[2] - cf;
+	cf, b[3] -= a[3] - cf;
+	cf, b[4] -= a[4] - cf;
+	
+	#[kind=Assert, prover=smt] assert (!cf);
+	#[kind=Assume, prover=cas] assert (b2i(cf) == 0);
+	
+	return b;
+}

@@ -1,0 +1,110 @@
+require "ge25519_base_niels_256.jinc" // Base point multiples
+
+/**
+ * function choose_t
+ * @param {reg u64} pos - Position in the scalar
+ * @param {reg u64} b - Value of the scalar at this position
+ * @returns {stack u64[12]} - Precomputed multiple of the base point
+ * 
+ * This functions returns the base point multiple b*(16^pos)*G.
+ * It runs in constant time and input independent access pattern.
+*/
+inline fn choose_t(reg u64 pos, reg u64 b) -> stack u64[12]
+{	
+	reg u64 mask u;
+	reg u256 cmp_1 cmp_2 cmp_3 cmp_4 cmp_5 cmp_6 cmp_7 cmp_8;
+	reg u256 b_256 p_256 u_256 t tt_256;
+	reg u256 tysubx txaddy tt2d; // Coordinates in register
+	stack u64[12] t_stack; // Result
+	reg ptr u256[1536] _basep; // ptr to basepoint multiples
+	
+	_basep = basep; // Get pointer to basepoints
+	
+	// Compute offset in basepoint array
+	// Every position has 3[coordinates] * 32[bytes] * 8[values of b]
+	pos *= 768; 
+	
+	/*
+  0 <= b < 8 -> mask = 8>>s7 = 0
+  b < 0 -> mask = 0xff...f0>>s7 = 0xffffff
+  */
+	mask = b;
+	mask >>s= 7;
+	
+	// u = |b|
+	u = b;
+	u += mask;
+	u ^= mask;
+	
+	// Init with point in infinity
+	tysubx = _1;
+	txaddy = _1;
+	tt2d =  #set0_256();
+	
+	// Broadcast u to all positions
+	u_256 = (256u)#VMOV_64(u);
+	u_256 = #VPBROADCAST_4u64(u_256);
+	// Compare input against 1..8 with AVX instructions
+	cmp_1 = #VPCMPEQ_4u64(u_256, v1234);
+	cmp_5 = #VPCMPEQ_4u64(u_256, v5678);
+	
+	// Write results for each number in separate registers
+	cmp_2 = #VPERMQ(cmp_1, 0x55);
+	cmp_6 = #VPERMQ(cmp_5, 0x55);
+	cmp_3 = #VPERMQ(cmp_1, 0xaa);
+	cmp_7 = #VPERMQ(cmp_5, 0xaa);
+	cmp_4 = #VPERMQ(cmp_1, 0xff);
+	cmp_8 = #VPERMQ(cmp_5, 0xff);
+	cmp_1 = #VPERMQ(cmp_1, 0x00);
+	cmp_5 = #VPERMQ(cmp_5, 0x00);
+	
+	// Use vector blending to load the correct multiple in the coordinate
+	tysubx = #BLENDV_32u8(tysubx, _basep.[pos], cmp_1);
+	txaddy = #BLENDV_32u8(txaddy, _basep.[pos + 32*1], cmp_1);
+	tt2d	 = #BLENDV_32u8(tt2d	, _basep.[pos + 32*2], cmp_1);
+	tysubx = #BLENDV_32u8(tysubx, _basep.[pos + 32*3], cmp_2);
+	txaddy = #BLENDV_32u8(txaddy, _basep.[pos + 32*4], cmp_2);
+	tt2d	 = #BLENDV_32u8(tt2d	, _basep.[pos + 32*5], cmp_2);
+	tysubx = #BLENDV_32u8(tysubx, _basep.[pos + 32*6], cmp_3);
+	txaddy = #BLENDV_32u8(txaddy, _basep.[pos + 32*7], cmp_3);
+	tt2d	 = #BLENDV_32u8(tt2d	, _basep.[pos + 32*8], cmp_3);
+	tysubx = #BLENDV_32u8(tysubx, _basep.[pos + 32*9], cmp_4);
+	txaddy = #BLENDV_32u8(txaddy, _basep.[pos + 32*10], cmp_4);
+	tt2d	 = #BLENDV_32u8(tt2d	, _basep.[pos + 32*11], cmp_4);
+	tysubx = #BLENDV_32u8(tysubx, _basep.[pos + 32*12], cmp_5);
+	txaddy = #BLENDV_32u8(txaddy, _basep.[pos + 32*13], cmp_5);
+	tt2d	 = #BLENDV_32u8(tt2d	, _basep.[pos + 32*14], cmp_5);
+	tysubx = #BLENDV_32u8(tysubx, _basep.[pos + 32*15], cmp_6);
+	txaddy = #BLENDV_32u8(txaddy, _basep.[pos + 32*16], cmp_6);
+	tt2d	 = #BLENDV_32u8(tt2d	, _basep.[pos + 32*17], cmp_6);
+	tysubx = #BLENDV_32u8(tysubx, _basep.[pos + 32*18], cmp_7);
+	txaddy = #BLENDV_32u8(txaddy, _basep.[pos + 32*19], cmp_7);
+	tt2d	 = #BLENDV_32u8(tt2d	, _basep.[pos + 32*20], cmp_7);
+	tysubx = #BLENDV_32u8(tysubx, _basep.[pos + 32*21], cmp_8);
+	txaddy = #BLENDV_32u8(txaddy, _basep.[pos + 32*22], cmp_8);
+	tt2d	 = #BLENDV_32u8(tt2d	, _basep.[pos + 32*23], cmp_8);
+	
+	// Write b to AVX register for blending based on the sign
+	b_256 = (256u)#VMOV_64(b);
+	b_256 = #VPBROADCAST_4u64(b_256);
+	
+	// If b < 0, then b_256 = 0xffffff, else b_256 = 0
+	b_256 = #VPSRA_8u32(b_256, 31);
+	// Swap x and y if b<0
+	t = tysubx;
+	tysubx = #BLENDV_32u8(tysubx, txaddy, b_256);
+	txaddy = #BLENDV_32u8(txaddy, t, b_256);
+	t_stack[:u256 0] = tysubx;
+	t_stack[:u256 1] = txaddy;
+	
+	// tt2d = p-tt2d if b < 0
+	p_256 = p;
+	// No carries occur here, as each limb of all tt2d always smaller than limb of p
+	tt_256 = #VPSUB_4u64(p_256, tt2d);
+	
+	tt2d = #BLENDV_32u8(tt2d, tt_256, b_256);
+
+	t_stack[:u256 2] = tt2d;
+
+	return t_stack;
+}

@@ -1,0 +1,61 @@
+require "../common/64/add4.jinc"
+require "../common/64/sub4.jinc"
+
+require "mul4.jinc"
+require "ge.jinc"
+require "invert4.jinc"
+require "fe25519_freeze.jinc"
+require "sc25519_from32bytes.jinc"
+
+/**
+ * function _curve25519_mulx_base
+ * @param {reg u64[4]} k - scalar in 64-bit limb representation
+ * @returns {reg u64[4]} - Compressed representation of k*G
+ * 
+ * This function computes the k-multiple of the basepoint G and
+ * outputs the result in compressed representation.
+*/
+fn _curve25519_mulx_base(reg u64[4] _k, #[msf] reg u64 msf) -> reg u64[4], #[msf] reg u64
+{
+	reg u64 par;
+	reg u64[4] r;
+	reg u64[4] rx ry rz;
+	stack u64[4] rxs rys rzs;
+	stack u64[16] ger;
+	#[mmx] reg u64 msf_s;
+	
+  // Reduce _k below curve order L
+  _k = sc25519_from32bytes(_k);
+  
+  // Compute _k * G, result is one point
+  ger, msf = __ge25519_scalarmult_base(ger, _k, msf);
+  
+  // z are coordinates 8-12
+	rz[0] = ger[8];
+	rz[1] = ger[9];
+	rz[2] = ger[10];
+	rz[3] = ger[11];
+	
+	// Invert z coordinate for point compression
+	rz, msf = __invert4(rz, msf);
+  msf_s = #mov_msf(msf);
+  
+	rzs = #copy(rz);
+	
+	// Multiply x,y be z^{-1} for (x,y) representation
+	rys = __mul4_ssr(ger[4:4], rz);
+	rx = __mul4_rss(ger[0:4], rzs);
+  
+  // Reduce x,y below p
+  rxs = __freeze4_sr(rx);
+	ry = #copy(rys);
+	r = __fe25519_pack(ry);
+  
+  // Get parity and set as x coordinate
+  par = rxs[0];
+  par = par << 63;
+  r[3] ^= par;
+	
+	msf = #mov_msf(msf_s);
+  return r, msf;
+}

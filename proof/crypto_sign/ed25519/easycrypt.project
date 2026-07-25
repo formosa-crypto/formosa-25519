@@ -1,0 +1,3 @@
+[general]
+idirs = Jasmin:/usr/lib/easycrypt/jasmin/
+rdirs = amd64

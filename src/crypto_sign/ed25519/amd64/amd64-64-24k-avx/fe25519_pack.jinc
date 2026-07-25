@@ -1,0 +1,14 @@
+require "fe25519_freeze.jinc"
+
+/**
+ * function __fe25519_pack
+ * @param {reg u64[4]} x - Field element in 64-bit limb representation
+ * @returns {reg u64[4]} - Reduced field element in 64-bit limb representation
+ * 
+ * This function reduces the input r below the prime p. The input is consumed.
+*/
+inline fn __fe25519_pack(reg u64[4] x) -> reg u64[4]
+{
+	x = __freeze4_rr(x);
+	return x;
+}

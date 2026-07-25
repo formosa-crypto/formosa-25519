@@ -1,0 +1,40 @@
+/**
+ * function sc25519_add_rrs
+ * @param {reg u64[4]} r - First summand in 64-bit limb representation
+ * @param {stack u64[4]} y - ptr to second summand in 64-bit limb representation
+ * @returns {reg u64[4]} - Sum of f and g in 64-bit limb representation
+ * 
+ * This function adds the two numbers in f and g modulo p. The inputs must be reduced
+ * below L. The first summand is changed.
+ * The representation is:
+ * r = r + y
+ * r = (2**0*r0 + 2**64*r1 + 2**128*r2 + 2**192*r3) *
+ *     (2**0*y0 + 2**64*y1 + 2**128*y2 + 2**192*y3) mod (2^8*p)
+*/
+inline fn sc25519_add_rrs(reg u64[4] r, stack u64[4] y) -> reg u64[4]
+{
+  reg bool cf;
+  reg u64[4] t;
+  
+  // Add r and y. If both inputs are <L, there is no carry.
+  cf, r[0] += y[0];
+  cf, r[1] += y[1] + cf;
+  cf, r[2] += y[2] + cf;
+  _, r[3] += y[3] + cf;
+  
+  // Result is smaller than 2*L
+  // Subtract L once and take the result if the result is positive
+  t = #copy(r);
+
+  cf, t[0] -= L[0];
+  cf, t[1] -= L[1] - cf;
+  cf, t[2] -= L[2] - cf;
+  cf, t[3] -= L[3] - cf;
+
+  r[0] = #CMOVcc(!cf, t[0], r[0]);
+  r[1] = #CMOVcc(!cf, t[1], r[1]);
+  r[2] = #CMOVcc(!cf, t[2], r[2]);
+  r[3] = #CMOVcc(!cf, t[3], r[3]);
+
+  return r;
+}

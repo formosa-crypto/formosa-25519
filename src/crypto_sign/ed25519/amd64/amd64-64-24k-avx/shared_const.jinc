@@ -1,0 +1,27 @@
+// Indices to swap endianess on 4 words in parallel with AVX instructions
+u256 bswap_indices = (4u64)[0x08090a0b0c0d0e0f, 0x0001020304050607, 0x08090a0b0c0d0e0f, 0x0001020304050607];
+// Static one (AVX does not allow immidiates)
+u256 _1 = (4u64)[0,0,0,1];
+// Indices for vectorized CMOVs in ge.jinc
+u256 v1234 = (4u64)[4,3,2,1];
+u256 v5678 = (4u64)[8,7,6,5];
+// Masks for AVX code
+u256 _15x32 = (4u64)[0x0f0f0f0f0f0f0f0f, 0x0f0f0f0f0f0f0f0f, 0x0f0f0f0f0f0f0f0f, 0x0f0f0f0f0f0f0f0f];
+// The prime p=2^255-19
+u256 p = (4u64)[0x7fffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffed];
+// The curve order L
+u64[4] L = {0x5812631A5CF5D3ED, 0x14DEF9DEA2F79CD6, 0x0000000000000000, 0x1000000000000000};
+// Discriminant constant d of Ed25519
+u64[4] ecd = {0x75EB4DCA135978A3, 0x00700A4D4141D8AB, 0x8CC740797779E898, 0x52036CEE2B6FFE73};
+// 2*Discriminant constant d of Ed25519
+u64[4] ec2d = {0xEBD69B9426B2F146, 0x00E0149A8283B156, 0x198E80F2EEF3D130, 0xA406D9DC56DFFCE7};
+// The squareroot of -1 in the field over p
+u64[4] sqrtm1 = {0xC4EE1B274A0EA0B0, 0x2F431806AD2FE478, 0x2B4D00993DFBD7A7, 0x2B8324804FC1DF0B};
+// Precomputed mu for the barrett reduction (2^512//L)
+u64[5] mu = {0xED9CE5A30A2C131B, 0x2106215D086329A7, 0xFFFFFFFFFFFFFFEB, 0xFFFFFFFFFFFFFFFF, 0x000000000000000F};
+// Mask to unset the upper bit of register
+u64 mask63 = 0x7FFFFFFFFFFFFFFF;
+// The prime p multiplied by 2^8
+u64 twoexp8_p0 = 0xFFFFFFFFFFFFED00;
+u64 twoexp8_p123 = 0xFFFFFFFFFFFFFFFF;
+u64 twoexp8_p4 = 0x000000000000007F;

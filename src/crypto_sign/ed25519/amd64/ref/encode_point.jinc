@@ -1,0 +1,49 @@
+require "fe25519_freeze.jinc"
+require "invert4.jinc"
+
+/**
+ * function _encode_point
+ * @param {stack u64[12]} pp - Point in projective representation
+ * @returns {reg u64[4]} - Compressed input point
+ * 
+ * This function packs the input point p into a 256-bit representation.
+*/
+fn _encode_point(reg ptr u64[12] pp) -> reg u64[4]
+{
+  reg u8 temp;
+  reg u64[4] x y z res;
+  stack u64[4] xs ys zs;
+  
+  // Load coordinates
+  x = #copy(pp[0:4]);
+  y = #copy(pp[4:4]);
+  z = #copy(pp[8:4]);
+  
+  xs = #copy(x);
+  ys = #copy(y);
+	
+	// Invert z coordinate
+  z = _invert4(z);
+  zs = #copy(z);
+  
+  // Multiply x and y with z and reduce below p
+  x = __mul4_rss(xs, zs);
+  xs = __freeze4_sr(x);
+  
+  y = __mul4_rss(ys, zs);
+  ys = __freeze4_sr(y);
+  
+  // Insert the parity of x as MSB
+  temp = ys[:u8 31];
+  temp &= 0x7f;
+  ys[:u8 31] = temp;
+  
+  temp = xs[:u8 0];
+  temp &= 0x1;
+  temp = temp << 7;
+  ys[:u8 31] |= temp;
+  
+	res = #copy(ys);
+	
+  return res;
+}

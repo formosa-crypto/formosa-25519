@@ -1,0 +1,72 @@
+require "shared_const.jinc"
+
+require "../common/64/sub4.jinc"
+require "../common/64/add5.jinc"
+require "../common/64/sub5.jinc"
+require "mul5.jinc"
+
+/**
+ * function ge25519_nielssub_p1p1
+ * @param {stack u64[19]} pp - Point in extended representation
+ * @param {reg ptr u64[12]} qp - Pointer to point in projective representation
+ * @returns {stack u64[19]} - Result point in extended intermediate representation
+ * 
+ * This function computes p-q. The first input is in extended coordinates(x,y,z,t).
+ * x,y,z are 5 limbs large. The second input is in niels coordinates(y-x,x+y,t*2*d).
+ * The output is in intermediate coordinates (e,f,g,h).
+ * e = (p.Y + p.X) * (q.X - q.Y) - (p.Y - p.X) * (q.X + q.Y)
+ * f = 2*p.Z + 2 * d * q.T * p.T
+ * g = (p.Y + p.X) * (q.X - q.Y) + (p.Y - p.X) * (q.X + q.Y)
+ * h = 2*p.Z - 2 * d * q.T * p.T
+*/
+inline fn ge25519_nielssub_p1p1(stack u64[19] pp, reg ptr u64[12] qp) -> stack u64[16]
+{
+	reg u64[4] f4 h4;
+	reg u64[5] a b c e f g h;
+	stack u64[4] as bs;
+	stack u64[5] as5;
+	stack u64[16] r;
+	reg bool cf;
+	inline int i;
+	
+	// a,b = p.Y
+	for i=0 to 5
+	{ a[i] = pp[5+i]; }
+	b = #copy(a);
+	
+	// a = p.Y - p.X
+	as = __sub5_srs(a, pp[0:5]);
+	// b = p.Y + p.X
+	bs = __add5_srs(b, pp[0:5]);
+	
+	// a = (p.Y - p.X) * (q.X + q.Y)
+	as5 = __mul5_sp12s_y(qp, as);
+	// e = (p.Y + p.X) * (q.Y - q.X)
+	e = __mul5_rp12s_x(qp, bs);
+	g = #copy(e);
+	
+	// e = (p.Y + p.X) * (q.X - q.Y) - (p.Y - p.X) * (q.X + q.Y)
+	r[0:4] = __sub5_srs(e, as5);
+	// g = (p.Y + p.X) * (q.X - q.Y) + (p.Y - p.X) * (q.X + q.Y)
+	r[8:4] = __add5_srs(g, as5);
+	
+	// c = 2 * d * q.T * p.T
+	c = __mul5_rp12s_z(qp, pp[15:4]);
+	
+	// f = 2*p.Z
+	for i=0 to 5
+	{	f[i] = pp[10+i]; }
+	cf, f[0] += f[0];
+  for i=1 to 5
+  { cf, f[i] += f[i] + cf; }
+	h = #copy(f);
+	
+	// f = 2*p.Z - 2 * d * q.T * p.T
+  f4 = __sub5_rrr(f, c);
+  r[4:4] = #copy(f4);
+  // h = 2*p.Z + 2 * d * q.T * p.T
+	h4 = __add5_rrr(h, c);
+	r[12:4] = #copy(h4);
+	
+	return r;
+}

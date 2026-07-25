@@ -1,0 +1,139 @@
+require "../common/64/add5.jinc"
+require "../common/64/sub5.jinc"
+require "mul5.jinc"
+
+/**
+ * function ge25519_dbl_p1p1
+ * @param {stack u64[12]} q - Point in projective representation
+ * @param {stack u64[19]} r - Point in extended representation
+ * @returns {stack u64[19]} - Result point in extended representation
+ * 
+ * This function computes q+r. The first input is in niels coordinates(y-x,x+y,t*2*d).
+ * The second input is in extended coordinates(x,y,z,t). x,y,z are 5 limbs large.
+ * The output is in extended coordinates(x,y,z,t).
+ * a= (r.X + r.Y) * (q.X + q.Y) - (r.Y - r.X) * (q.Y - q.X)
+ * b = (r.X + r.Y) * (q.X + q.Y) + (r.Y - r.X) * (q.Y - q.X)
+ * f = 2*r.Z - 2 * d * q.T * r.T
+ * g = 2*r.Z + 2 * d * q.T * r.T
+ *
+ * r.X = a * f
+ * r.Y = b * g
+ * r.Z = g * f
+ * r.T = a * b
+*/
+inline fn ge25519_nielsadd2(stack u64[12] q, stack u64[19] r) -> stack u64[19]
+{
+	reg u64[5] a b c e f g h;
+	reg u64[4] a4 b4 c4 f4 g4 q4;
+	stack u64[5] as;
+	stack u64[4] as4 bs4 fs4 gs4; 
+	reg u64[5] rx ry rz rt;
+	reg bool cf;
+	inline int i;
+	
+	// a, b = p.Y
+	for i=0 to 5
+	{	a[i] = r[5+i]; }
+	b = #copy(a);
+	
+	// a = r.Y - r.X
+	a4 = __sub5_rrs(a, r[0:5]);
+  as4 = #copy(a4);
+  
+	// b = r.X + r.Y
+	b4 = __add5_rrs(b, r[0:5]);
+	bs4 = #copy(b4);
+	
+	// a = (r.Y - r.X) * (q.Y - q.X)
+	q4[0] = q[0];
+	q4[1] = q[1];
+	q4[2] = q[2];
+	q4[3] = q[3];
+	as = __mul5_ssr(as4, q4);
+	// e = (r.X + r.Y) * (q.X + q.Y)
+	q4[0] = q[4];
+	q4[1] = q[5];
+	q4[2] = q[6];
+	q4[3] = q[7];
+	e = __mul5_rsr(bs4, q4);
+	h = #copy(e);
+	
+	// a = (r.X + r.Y) * (q.X + q.Y) - (r.Y - r.X) * (q.Y - q.X)
+	a4 = __sub5_rrs(e, as);
+	as4 = #copy(a4);
+	// b = (r.X + r.Y) * (q.X + q.Y) + (r.Y - r.X) * (q.Y - q.X)
+	b4 = __add5_rrs(h, as);
+	bs4 = #copy(b4);
+	
+	// c = 2 * d * q.T * r.T
+	c4[0] = r[15];
+	c4[1] = r[16];
+	c4[2] = r[17];
+	c4[3] = r[18];
+	
+	c = __mul5_rsr(q[8:4], c4);
+	
+	// f = 2*r.Z
+	for i=0 to 5
+	{
+		f[i] = r[10 + i];
+	}
+	
+	cf, f[0] += f[0];
+  for i=1 to 5
+  { cf, f[i] += f[i] + cf; }
+	
+	// g = 2*r.Z
+	g = #copy(f);
+	
+	
+	// f = 2*r.Z - 2 * d * q.T * r.T
+	f4 = __sub5_rrr(f, c);
+	fs4 = #copy(f4);
+	
+	// g = 2*r.Z + 2 * d * q.T * r.T
+	g4 = __add5_rrr(g, c);
+	gs4 = #copy(g4);
+	
+	// r.X = a * f
+	rx = __mul5_rss(as4, fs4);
+	
+	for i=0 to 5
+	{
+		r[i] = rx[i];
+	}
+	
+	// r.Y = b * g
+	ry = __mul5_rss(bs4, gs4);
+	for i=0 to 5
+	{
+		r[5 + i] = ry[i];
+	}
+	
+	// r.Z = g * f
+	rz = __mul5_rss(gs4, fs4);
+	for i=0 to 5
+	{
+		r[10 + i] = rz[i];
+	}
+	
+	// r.T = a * b
+	rt = __mul5_rss(as4, bs4);
+	
+	// Reduce t to 4 limbs
+	_, _, _, _, _, rt[4] = #SHLD(rt[4], rt[3], 1);
+	rt[3] &= mask63;
+
+	_,_,_,_,_,rt[4] = #IMULri ( rt[4], 19 );
+	cf, rt[0] += rt[4];
+	cf, rt[1] += 0 + cf;
+	cf, rt[2] += 0 + cf;
+	cf, rt[3] += 0 + cf;
+	for i=0 to 4
+	{
+		r[15 + i] = rt[i];
+	}
+	
+	return r;
+}
+

@@ -1,0 +1,279 @@
+/**
+ * function __sub5_rrr
+ * @param {reg u64[5]} f - Minuend in 64-bit limb representation
+ * @param {reg u64[5]} g - Subtrahend in 64-bit limb representation
+ * @returns {reg u64[4]} - Difference of f and g in 64-bit limb representation
+ * 
+ * This function subtracts g from f. The minuend is consumed.
+ * f[4], g[4] < 127, hence no final carry can occur. The result is
+ * reduced to 4 limbs.
+ * The representation is:
+ * h = f - g
+ * h = 2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3 + 2**256*f4 -
+ *     2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3 + 2**256*g4
+*/
+inline fn __sub5_rrr(reg u64[5] f, reg u64[5] g) -> reg u64[4]
+{
+  reg u64[4] h; // Result
+  reg bool cf;  // Borrow flag
+  inline int i;
+  
+  // Add 2^8*p to f to prevent negative result
+  cf, f[0] += twoexp8_p0;
+  cf, f[1] += twoexp8_p123 + cf;
+  cf, f[2] += twoexp8_p123 + cf;
+  cf, f[3] += twoexp8_p123 + cf;
+  cf, f[4] += twoexp8_p4 + cf;
+  
+  // Subtract with borrow flag
+  cf, f[0] -= g[0];
+  for i=1 to 5
+  { cf, f[i] -= g[i] - cf; }
+  
+  // Multiply MSBs by 2 and later 19 to get 38
+  ?{}, f[4] = #SHLD(f[4], f[3], 1);
+  // Clear shifted bit
+  f[3] &= mask63;
+  
+  // Multiply upper limb by 19, as 2^256 == 38
+  ?{}, f[4] = #IMULri ( f[4], 19 );
+  // Reduce result
+  cf, h[0] = f[0] + f[4];
+  cf, h[1] = f[1] + 0 + cf;
+  cf, h[2] = f[2] + 0 + cf;
+  cf, h[3] = f[3] + 0 + cf; // No carry as MSB is cleared
+
+  return h;
+}
+
+/**
+ * function __sub5_rrs_nored
+ * @param {reg u64[5]} f - Minuend in 64-bit limb representation
+ * @param {stack u64[5]} g - ptr to subtrahend in 64-bit limb representation
+ * @returns {reg u64[4]} - Difference of f and g in 64-bit limb representation
+ * 
+ * This function subtracts g from f. The minuend is consumed.
+ * This is only applicable if f > g. The result is
+ * reduced to 4 limbs.
+ * The representation is:
+ * h = f - g
+ * h = 2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3 + 2**256*f4 -
+ *     2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3 + 2**256*g4
+*/
+inline fn __sub5_rrs_nored(reg u64[5] f, stack u64[5] g) -> reg u64[4]
+{
+  reg u64[4] h; // Result
+  reg bool cf;  // Borrow flag
+  inline int i;
+  
+  // Subtract with borrow flag
+  cf, f[0] -= g[0];
+  for i=1 to 5
+  { cf, f[i] -= g[i] - cf; }
+  
+  // Multiply MSBs by 2 and later 19 to get 38
+  ?{}, f[4] = #SHLD(f[4], f[3], 1);
+  // Clear shifted bit
+  f[3] &= mask63;
+  
+  // Multiply upper limb by 19, as 2^256 == 38
+  ?{}, f[4] = #IMULri ( f[4], 19 );
+  // Reduce result
+  cf, h[0] = f[0] + f[4];
+  cf, h[1] = f[1] + 0 + cf;
+  cf, h[2] = f[2] + 0 + cf;
+  cf, h[3] = f[3] + 0 + cf; // No carry as MSB is cleared
+
+  return h;
+}
+
+/**
+ * function __sub5_rrs
+ * @param {reg u64[5]} f - Minuend in 64-bit limb representation
+ * @param {stack u64[5]} g - ptr to subtrahend in 64-bit limb representation
+ * @returns {reg u64[4]} - Difference of f and g in 64-bit limb representation
+ * 
+ * This function subtracts g from f. The minuend is consumed.
+ * f[4], g[4] < 127, hence no final carry can occur. The result is
+ * reduced to 4 limbs.
+ * The representation is:
+ * h = f - g
+ * h = 2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3 + 2**256*f4 -
+ *     2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3 + 2**256*g4
+*/
+inline fn __sub5_rrs(reg u64[5] f, stack u64[5] g) -> reg u64[4]
+{
+  reg u64[4] h; // Result
+  reg bool cf;  // Borrow flag
+  inline int i;
+  
+  // Add 2^8*p to f to prevent negative result
+  cf, f[0] += twoexp8_p0;
+  cf, f[1] += twoexp8_p123 + cf;
+  cf, f[2] += twoexp8_p123 + cf;
+  cf, f[3] += twoexp8_p123 + cf;
+  cf, f[4] += twoexp8_p4 + cf;
+  
+  // Subtract with borrow flag
+  cf, f[0] -= g[0];
+  for i=1 to 5
+  { cf, f[i] -= g[i] - cf; }
+  
+  // Multiply MSBs by 2 and later 19 to get 38
+  ?{}, f[4] = #SHLD(f[4], f[3], 1);
+  // Clear shifted bit
+  f[3] &= mask63;
+  
+  // Multiply upper limb by 19, as 2^256 == 38
+  ?{}, f[4] = #IMULri ( f[4], 19 );
+  // Reduce result
+  cf, h[0] = f[0] + f[4];
+  cf, h[1] = f[1] + 0 + cf;
+  cf, h[2] = f[2] + 0 + cf;
+  cf, h[3] = f[3] + 0 + cf;
+
+  return h;
+}
+
+/**
+ * function __sub5_rrp
+ * @param {reg u64[5]} f - Minuend in 64-bit limb representation
+ * @param {reg ptr u64[5]} g - ptr to subtrahend in 64-bit limb representation
+ * @returns {reg u64[4]} - Difference of f and g in 64-bit limb representation
+ * 
+ * This function subtracts g from f. The minuend is consumed.
+ * f[4], g[4] < 127, hence no final carry can occur. The result is
+ * reduced to 4 limbs.
+ * The representation is:
+ * h = f - g
+ * h = 2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3 + 2**256*f4 -
+ *     2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3 + 2**256*g4
+*/
+inline fn __sub5_rrp(reg u64[5] f, reg ptr u64[5] g) -> reg u64[4]
+{
+  reg u64[4] h; // Result
+  reg bool cf;  // Borrow flag
+  inline int i;
+  
+  // Add 2^8*p to f to prevent negative result
+  cf, f[0] += twoexp8_p0;
+  cf, f[1] += twoexp8_p123 + cf;
+  cf, f[2] += twoexp8_p123 + cf;
+  cf, f[3] += twoexp8_p123 + cf;
+  cf, f[4] += twoexp8_p4 + cf;
+
+  // Subtract with borrow flag
+  cf, f[0] -= g[0];
+  for i=1 to 5
+  { cf, f[i] -= g[i] - cf; }
+  
+  // Multiply MSBs by 2 and later 19 to get 38
+  ?{}, f[4] = #SHLD(f[4], f[3], 1);
+  // Clear shifted bit
+  f[3] &= mask63;
+  
+  // Multiply upper limb by 19, as 2^256 == 38
+  ?{}, f[4] = #IMULri ( f[4], 19 );
+  // Reduce result
+  cf, h[0] = f[0] + f[4];
+  cf, h[1] = f[1] + 0 + cf;
+  cf, h[2] = f[2] + 0 + cf;
+  cf, h[3] = f[3] + 0 + cf;
+
+  return h;
+}
+
+/**
+ * function __sub5_srs
+ * @param {reg u64[5]} f - Minuend in 64-bit limb representation
+ * @param {stack u64[5]} g - ptr to subtrahend in 64-bit limb representation
+ * @returns {stack u64[4]} - Difference of f and g in 64-bit limb representation
+ * 
+ * This function subtracts g from f. The minuend is consumed.
+ * f[4], g[4] < 127, hence no final carry can occur. The result is
+ * reduced to 4 limbs. The result is returned on the stack.
+ * The representation is:
+ * h = f - g
+ * h = 2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3 + 2**256*f4 -
+ *     2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3 + 2**256*g4
+*/
+inline fn __sub5_srs(reg u64[5] a, stack u64[5] b) -> stack u64[4]
+{
+  reg u64[4] c;
+  stack u64[4] cs;
+
+  c = __sub5_rrs(a, b);
+  cs = #copy(c);
+
+  return cs;
+}
+
+/**
+ * function __sub5_srs_nored
+ * @param {reg u64[5]} f - Minuend in 64-bit limb representation
+ * @param {stack u64[5]} g - ptr to subtrahend in 64-bit limb representation
+ * @returns {stack u64[4]} - Difference of f and g in 64-bit limb representation
+ * 
+ * This function subtracts g from f. The minuend is consumed.
+ * This is only applicable if f > g. The result is
+ * reduced to 4 limbs. The result is returned on the stack.
+ * The representation is:
+ * h = f - g
+ * h = 2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3 + 2**256*f4 -
+ *     2**0*g0 + 2**64*g1 + 2**128*g2 + 2**192*g3 + 2**256*g4
+*/
+inline fn __sub5_srs_nored(reg u64[5] a, stack u64[5] b) -> stack u64[4]
+{
+  reg u64[4] c;
+  stack u64[4] cs;
+
+  c = __sub5_rrs_nored(a, b);
+  cs = #copy(c);
+
+  return cs;
+}
+
+/**
+ * function __subi5_sri
+ * @param {reg u64[5]} f - Minuend in 64-bit limb representation
+ * @param {int} i - Subtrahend is Uint < 2^32
+ * @returns {stack u64[4]} - Difference of f and g in 64-bit limb representation
+ * 
+ * This function subtracts i from f. The minuend is consumed.
+ * This is only applicable if i <= a. The result is
+ * reduced to 4 limbs. The result is returned on the stack.
+ * The representation is:
+ * h = f - g
+ * h = 2**0*f0 + 2**64*f1 + 2**128*f2 + 2**192*f3 + 2**256*f4 - i
+*/
+inline fn __subi5_sri(reg u64[5] a, inline int i) -> stack u64[4]
+{
+  reg u64[4] a4;    // Result 
+  stack u64[4] a4s; // Result on stack
+  reg bool cf;      // Borrow flag
+  
+  // Subtract i
+  cf, a[0] -= i;
+  cf, a[1] -= 0 - cf;
+  cf, a[2] -= 0 - cf;
+  cf, a[3] -= 0 - cf;
+  cf, a[4] -= 0 - cf;
+  
+  // Multiply MSBs by 2 and later 19 to get 38
+  _, _, _, _, _, a[4] = #SHLD(a[4], a[3], 1);
+  // Clear shifted bit
+  a[3] &= mask63;
+  
+  // Multiply upper limb by 19, as 2^256 == 38
+  ?{}, a[4] = #IMULri ( a[4], 19 );
+  // Reduce result
+  cf, a4[0] = a[0] + a[4];
+  cf, a4[1] = a[1] + 0 + cf;
+  cf, a4[2] = a[2] + 0 + cf;
+  _ , a4[3] = a[3] + 0 + cf;
+    
+  // Write to stack
+  a4s = #copy(a4);
+
+  return a4s;
+}

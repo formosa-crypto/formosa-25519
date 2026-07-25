@@ -1,0 +1,375 @@
+
+require "sha512_globals.jinc"
+
+inline fn __initH_ref() -> stack u64[8]
+{
+  inline int i;
+  stack u64[8] H;
+  reg ptr u64[8] Hp;
+  reg u64 v;
+
+  Hp = SHA512_H;
+
+  for i=0 to 8
+  { v = Hp[i];
+    H[i] = v; }
+
+  return H;
+}
+
+inline fn __load_H_ref(stack u64[8] H) -> reg u64, reg u64, reg u64, reg u64,
+                                          reg u64, reg u64, reg u64, reg u64
+{
+  reg u64 a b c d e f g h;
+
+  a = H[0];
+  b = H[1];
+  c = H[2];
+  d = H[3];
+  e = H[4];
+  f = H[5];
+  g = H[6];
+  h = H[7];
+
+  return a, b, c, d, e, f, g, h;
+}
+
+inline fn __store_H_ref(reg u64 a b c d e f g h) -> stack u64[8]
+{
+  stack u64[8] H;
+  
+  H[0] = a;
+  H[1] = b;
+  H[2] = c;
+  H[3] = d;
+  H[4] = e;
+  H[5] = f;
+  H[6] = g;
+  H[7] = h;
+
+  return H;
+}
+
+inline fn __SHR_ref(reg u64 x, inline int c) -> reg u64
+{
+  reg u64 r;
+  r   = x;
+  r >>= c;
+  return r;
+}
+
+inline fn __ROTR_ref(reg u64 x, inline int c) -> reg u64
+{
+  reg u64 r;
+  r = x;
+  _, _, r = #ROR_64(r, c);
+  return r;
+}
+
+//(x & y) ^ (!x & z)
+inline fn __CH_ref(reg u64 x y z) -> reg u64
+{
+  reg u64 r s;
+
+  r  =  x;
+  r &=  y;
+  s  =  x;
+  s  = !s;
+  s &=  z;
+  r ^=  s;
+
+  return r;
+}
+
+//(x & y) ^ (x & z) ^ (y & z)
+inline fn __MAJ_ref(reg u64 x y z) -> reg u64
+{
+  reg u64 r s;
+
+  r  = x;
+  r &= y;
+  s  = x;
+  s &= z;
+  r ^= s;
+  s  = y;
+  s &= z;
+  r ^= s;
+
+  return r;
+}
+
+// (x >>> 28) ^ (x >>> 34) ^ (x >>> 39)
+inline fn __BSIG0_ref(reg u64 x) -> reg u64
+{
+  reg u64 r s;
+
+  r  = __ROTR_ref(x, 28);
+  s  = __ROTR_ref(x, 34);
+  r ^= s;
+  s  = __ROTR_ref(x, 39);
+  r ^= s;
+
+  return r;
+}
+
+// (x >>> 14) ^ (x >>> 18) ^ (x >>> 41)
+inline fn __BSIG1_ref(reg u64 x) -> reg u64
+{
+  reg u64 r s;
+
+  r  = __ROTR_ref(x, 14);
+  s  = __ROTR_ref(x, 18);
+  r ^= s;
+  s  = __ROTR_ref(x, 41);
+  r ^= s;
+
+  return r;
+}
+
+// (x >>> 1) ^ (x >>> 8) ^ (x >> 7)
+inline fn __SSIG0_ref(reg u64 x) -> reg u64
+{
+  reg u64 r s;
+
+  r  = __ROTR_ref(x, 1);
+  s  = __ROTR_ref(x, 8);
+  r ^= s;
+  s  = __SHR_ref(x, 7);
+  r ^= s;
+
+  return r;
+}
+
+// (x >>> 19) ^ (x >>> 61) ^ (x >> 6)
+inline fn __SSIG1_ref(reg u64 x) -> reg u64
+{
+  reg u64 r s;
+
+  r  = __ROTR_ref(x, 19);
+  s  = __ROTR_ref(x, 61);
+  r ^= s;
+  s  = __SHR_ref(x, 6);
+  r ^= s;
+
+  return r;
+}
+
+// Wt = SSIG1(W(t-2)) + W(t-7) + SSIG0(t-15) + W(t-16)
+inline fn __Wt_ref(stack u64[80] W, reg u64 t) -> stack u64[80]
+{
+  reg u64 wt wt2 wt15;
+
+  wt2  = W[t-2];
+  wt   = __SSIG1_ref(wt2);
+  wt  += W[t-7];
+  wt15 = W[t-15];
+  wt15 = __SSIG0_ref(wt15);
+  wt  += wt15;
+  wt  += W[t-16];
+
+  W[t] = wt;
+
+  return W;
+}
+
+fn _blocks_0_ref(reg ptr u64[25] pstate) -> reg ptr u64[25]
+{
+  reg u64 T1 T2 a b c d e f g h r v;
+  reg ptr u64[80] Kp;
+  stack u64[8] H;
+  stack u64[80] W;
+  reg u64 tr;
+  inline int i;
+  
+  Kp = SHA512_K;
+  
+  for i=0 to 8
+  { H[i] = pstate[16+i]; }
+
+  for i=0 to 16
+  { v = pstate[i];
+    v = #BSWAP_64(v);
+    W[i] = v;
+  }
+	
+	tr = 16;
+  while (tr < 80)
+  { W = __Wt_ref(W, tr);
+  		tr += 1;}
+
+  a, b, c, d, e, f, g, h = __load_H_ref(H);
+
+  tr = 0;
+  while(tr < 80)
+  {
+    //T1 = h + BSIG1(e) + CH(e,f,g) + Kt + Wt
+    T1  = h;
+    r   = __BSIG1_ref(e);
+    T1 += r;
+    r   = __CH_ref(e,f,g);
+    T1 += r;
+    T1 += Kp[tr];
+    T1 += W[tr];
+
+    //T2 = BSIG0(a) + MAJ(a,b,c)
+    T2  = __BSIG0_ref(a);
+    r   = __MAJ_ref(a,b,c);
+    T2 += r;
+
+    h  = g;
+    g  = f;
+    f  = e;
+    e  = d;
+    e += T1;
+    d  = c;
+    c  = b;
+    b  = a;
+    a  = T1;
+    a += T2;
+
+    tr+= 1;
+  }
+
+  a += H[0];
+  b += H[1];
+  c += H[2];
+  d += H[3];
+  e += H[4];
+  f += H[5];
+  g += H[6];
+  h += H[7];
+
+  H = __store_H_ref(a,b,c,d,e,f,g,h);
+  
+  for i=0 to 8
+  { pstate[16+i] = H[i]; }
+  
+  return pstate;
+}
+
+fn _blocks_1_ref(reg ptr u64[8] Hp, reg ptr u64[32] sblocks, reg u64 nblocks) -> reg ptr u64[8]
+{
+  reg u64 T1 T2 a b c d e f g h r v;
+  reg u64 j oblocks tr;
+  stack u64[8] H;
+  stack u64[80] W;
+  reg ptr u64[80] Kp;
+  inline int i;
+	
+	for i=0 to 8
+	{ H[i] = Hp[i];  }
+	
+	() = #spill(Hp);
+	
+  Kp = SHA512_K;
+  j = 0;
+
+  while(j < nblocks)
+  {
+    () = #spill(j);
+    oblocks = j << 4;
+    for i=0 to 16
+    { v = sblocks[oblocks + i];
+      v = #BSWAP_64(v);
+      W[i] = v;
+    }
+    () = #spill(sblocks);
+
+    tr = 16;
+		while (tr < 80)
+		{ W = __Wt_ref(W, tr);
+				tr += 1;}
+
+    a, b, c, d, e, f, g, h = __load_H_ref(H);
+
+    tr = 0;
+    while(tr < 80)
+    {
+      //T1 = h + BSIG1(e) + CH(e,f,g) + Kt + Wt
+      T1  = h;
+      r   = __BSIG1_ref(e);
+      T1 += r;
+      r   = __CH_ref(e,f,g);
+      T1 += r;
+      T1 += Kp[tr];
+      T1 += W[tr];
+
+      //T2 = BSIG0(a) + MAJ(a,b,c)
+      T2  = __BSIG0_ref(a);
+      r   = __MAJ_ref(a,b,c);
+      T2 += r;
+
+      h  = g;
+      g  = f;
+      f  = e;
+      e  = d;
+      e += T1;
+      d  = c;
+      c  = b;
+      b  = a;
+      a  = T1;
+      a += T2;
+
+      tr+= 1;
+    }
+
+    a += H[0];
+    b += H[1];
+    c += H[2];
+    d += H[3];
+    e += H[4];
+    f += H[5];
+    g += H[6];
+    h += H[7];
+
+    H = __store_H_ref(a,b,c,d,e,f,g,h);
+
+    () = #unspill(j, sblocks);
+    j += 1;
+  }
+
+  () = #unspill(Hp);
+  for i=0 to 8
+  { Hp[i] = H[i];  }
+  
+  return Hp;
+}
+
+inline fn __lastblocks_ref(stack u8[128] in, reg u64 inlen bits) -> stack u64[32], reg u64
+{
+  reg u64 i j nblocks z;
+  stack u64[32] sblocks;
+  inline int k;
+
+  ?{}, z = #set0();
+
+  // Zero-fill the sblocks array
+  for k = 0 to 32 { sblocks[k] = z; }
+	
+	i = 0;
+  // copy in to sblocks
+  while(i < inlen)
+  { 
+    sblocks[:u8 i] = in[i];
+    i += 1;
+  }
+
+  // set first byte after input to 0x80 
+  sblocks[:u8 inlen] = 0x80;
+  
+  // check if one or two blocks are needed
+  if(inlen < 112)
+  { j = (128-8); nblocks = 1; i = 127; }
+  else
+  { j = (256-8); nblocks = 2; i = 255; }
+
+  while(i >= j)
+  { sblocks[:u8 i] = (8u)bits;
+    bits >>= 8;
+    i -= 1;
+  }
+
+  return sblocks, nblocks;
+}
+
+

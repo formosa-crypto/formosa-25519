@@ -1,0 +1,95 @@
+require "sc25519_window4.jinc"
+require "ge25519_nielsadd2.jinc"
+require "choose_t.jinc"
+require "init_r.jinc"
+require "reduce5.jinc"
+
+/**
+ * function __ge25519_scalarmult_base
+ * @param {stack u64[16]} r - Ptr to result point
+ * @param {reg u64[4]} s - scalar in 64-bit limb representation
+ * @param {reg u64} msf - misspeculation flag
+ * @returns {stack u64[16]} - Result s*G in extended coordinates
+ * @returns {reg u64} - updated misspeculation flag
+ * 
+ * This function computes the s-multiple of the basepoint G and
+ * outputs the result in extended coordinates. Every coordinate has
+ * a size of 256 bit (4*u64).
+*/
+inline fn __ge25519_scalarmult_base(stack u64[16] r, reg u64[4] s, #[msf] reg u64 msf) -> stack u64[16], #[msf] reg u64
+{
+  #[spill_to_mmx]
+  reg u64 i;						// Loop iterator
+  reg u64 b_arg pos_arg; // Current window & position
+  reg u64[4] rx ry rz;	// Coordinates x,y,z in registers
+  stack u8[64] b;			// Windows
+  stack u64[12] t;			// Base point multiple
+  stack u64[19] rs;		// Result with 5-limb coordinates
+	reg bool cond;				// Loop condition
+	inline int j;				
+	#[mmx] reg u64 msf_s;
+	
+	// Mov msf to MMX register while doing branch-less computations
+	msf_s = #mov_msf(msf);
+	
+	// Compute 4-bit windows between -8,...,7 for s
+  b = sc25519_window4(s);
+
+	// Initialize result with first window
+  b_arg = (64s) b[0];
+  rs = init_r(b_arg);
+  
+	// Start with index 1 as 0 has been used in initialization
+	i = 1;
+	() = #spill(i);
+	
+	// Iterate over all 256/4=64 windows
+  while{cond = (i < 64); msf = #mov_msf(msf_s);}(cond)
+  {
+		msf = #update_msf(cond, msf);
+		msf_s = #mov_msf(msf);
+
+		// Get current window
+		b_arg = (64s) b[i];
+		pos_arg = i;
+		
+		// Choose corresponding base point multiple
+		t = choose_t(pos_arg, b_arg);
+		// Add the base point multiple to the result
+		rs = ge25519_nielsadd2(t, rs);
+		
+		// Go to next window
+		() = #unspill(i);
+		i += 1;
+		() = #spill(i);
+  }
+	msf = #update_msf(!cond, msf);
+	msf_s = #mov_msf(msf);
+	
+	// Reduce x,y,z coordinates to 4 bits
+  rx = __reduce5to4_rs(rs[0:5]);
+  for j=0 to 4
+  {
+  	  r[j] = rx[j];
+  }
+  
+  ry = __reduce5to4_rs(rs[5:5]);
+  for j=0 to 4
+  {
+    	r[4 + j] = ry[j];
+  }
+  
+  rz = __reduce5to4_rs(rs[10:5]);
+  for j=0 to 4
+  {
+  	  r[8 + j] = rz[j];
+  }
+  
+  for j=0 to 4
+  {
+    	r[12 + j] = rs[15+j];
+  }
+  
+  msf = #mov_msf(msf_s);
+  return r, msf;
+}

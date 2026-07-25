@@ -1,0 +1,59 @@
+/**
+ * function __neg5_rr
+ * @param {reg u64[5]} a - Input in 64-bit limb representation
+ * @returns {reg u64[5]} - Negated input modulo p
+ * 
+ * This functions negates the number a modulo the prime p.
+ * It runs in constant time and input independent access pattern.
+*/
+inline fn __neg5_rr(reg u64[5] a) -> reg u64[5]
+{
+  reg u64[5] b; // Result
+  reg bool cf;
+  
+  // Set result to p*2^8
+  b[0] = twoexp8_p0;
+  b[1] = twoexp8_p123;
+  b[2] = twoexp8_p123;
+  b[3] = twoexp8_p123;
+  b[4] = twoexp8_p4;
+  
+  // Subtract input < p*2^8 to negate
+  cf, b[0] -= a[0];
+  cf, b[1] -= a[1] - cf;
+  cf, b[2] -= a[2] - cf;
+  cf, b[3] -= a[3] - cf;
+  cf, b[4] -= a[4] - cf;
+
+  return b;
+}
+
+/**
+ * function __neg5_rs
+ * @param {stack u64[5]} a - Input in 64-bit limb representation
+ * @returns {reg u64[5]} - Negated input modulo p
+ * 
+ * This functions negates the number a modulo the prime p.
+ * It runs in constant time and input independent access pattern.
+*/
+inline fn __neg5_rs(stack u64[5] a) -> reg u64[5]
+{
+	reg u64[5] b; // Result
+	reg bool cf;
+	
+	// Set result to p*2^8
+	b[0] = twoexp8_p0;
+	b[1] = twoexp8_p123;
+	b[2] = twoexp8_p123;
+	b[3] = twoexp8_p123;
+	b[4] = twoexp8_p4;
+	
+	// Subtract input < p*2^8 to negate
+	cf, b[0] -= a[0];
+	cf, b[1] -= a[1] - cf;
+	cf, b[2] -= a[2] - cf;
+	cf, b[3] -= a[3] - cf;
+	cf, b[4] -= a[4] - cf;
+	
+	return b;
+}

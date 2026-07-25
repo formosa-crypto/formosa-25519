@@ -1,0 +1,140 @@
+/**
+ * function __reduce5
+ * @param {reg u64[4]} h - lower limbs of the number
+ * @param {reg u64[4]} r - high limbs of the number
+ * @param {reg u64} _38 - constant 38
+ * @param {reg u64} z - constant 0
+ * @param {reg bool} cf - carry flag, must be 0
+ * @param {reg bool} of - overflow flag, must be 0
+ * @returns {reg u64[5]} - (r*2^256 + h) % p*2**8
+ * 
+ * This function reduces the number composed of r and h modulo p*2**8. Inputs are not consumed.
+ * The representation is:
+ * h = (2**256 * r + h) % p
+ * h = (  2**0*h0 +  2**64*h1 + 2**128*h2 + 2**192*h3 +
+ *      2**256*r0 + 2**320*r1 + 2**384*r2 + 2**448*r3 ) mod p*2**8
+*/
+inline fn __reduce5
+( reg u64[4] h,
+  reg u64[4] r,
+  reg u64 _38,  // 38
+  reg u64    z, // zero
+  reg bool cf of // cf = 0 and of = 0
+) -> reg u64[5]
+{
+  reg u64 hi lo;
+  reg u64[5] red_h;
+  
+  // Multiply high limbs by 38, as 2**256 = 38
+  // Use parallel overflow and carry flag to track carries
+  ( hi, lo )   = #MULX ( _38,  r[0] );
+  of, red_h[0] = #ADOX ( h[0], lo, of );
+  cf, h[1]     = #ADCX ( h[1], hi, cf );
+
+  ( hi, lo )   = #MULX ( _38,  r[1] );
+  of, red_h[1] = #ADOX ( h[1], lo, of );
+  cf, h[2]     = #ADCX ( h[2], hi, cf );
+
+  ( hi, lo )   = #MULX ( _38,  r[2] );
+  of, red_h[2] = #ADOX ( h[2], lo, of );
+  cf, h[3]     = #ADCX ( h[3], hi, cf );
+
+  ( r[0], lo ) = #MULX ( _38, r[3] );
+  of, red_h[3] = #ADOX ( h[3], lo, of );
+
+  cf, r[0]     = #ADCX ( r[0], z, cf ); 
+  of, red_h[4] = #ADOX ( r[0], z, of );
+  // of, cf = 0, as r[0] < 64
+
+  return red_h;
+}
+
+/**
+ * function __reduce5to4_signed_rr
+ * @param {reg u64[5]} as - 5-limb of size 64 number
+ * @returns {reg u64[5]} - as % p in 4-limb representation
+ * 
+ * This function reduces the 5-limb number a % p. Inputs are not consumed.
+ * Bit 62 of a[4] is the sign of the number, so that we subtract the reduced
+ * value instead.
+ * The representation is:
+ * c = a % p
+ * c = ( 2**0*a0 +  2**64*a1 + 2**128*a2 + 2**192*a3 + 2**256*a4[0..62] - 2**318*a[63] ) mod p
+*/
+inline fn __reduce5to4_signed_rr(reg u64[5] a) -> reg u64[4]
+{
+  reg u64 h rax rdx;
+  reg u64[4] c;
+  reg bool cf;
+  
+  // Shift bit 255 in high order limb and multipy by 2
+  ?{}, a[4] = #SHLD_64(a[4], a[3], 1);
+  a[3] &= mask63;
+  
+  // Multiply by 19 as 2^256=38
+  // h=-1 if a[4] < 0, else 0
+  h = a[4];
+  rax = 19;
+  _, _, _, _, _, rdx, rax = #IMUL(rax, a[4]);
+  h = h >>s 63;
+  a[4] = 0;
+  
+  // Add result and subtract if necessary
+  cf, a[0] += rax;
+  cf, a[1] += rdx + cf;
+  cf, a[2] += h + cf;
+  cf, a[3] += h + cf;
+  _, a[4] += h + cf;
+  
+  // Shift bit 255 in high order limb and multipy by 2
+  ?{}, a[4] = #SHLD_64(a[4], a[3], 1);
+  a[3] &= mask63;
+  
+  // Multiply by 19 as 2^256=38
+  // h=-1 if a[4] < 0, else 0
+  h = a[4];
+  rax = 19;
+  _, _, _, _, _, rdx, rax = #IMUL(rax, a[4]);
+  h = h >>s 63;
+  
+  // Add result and subtract if necessary
+  cf, c[0] = a[0] + rax;
+  cf, c[1] = a[1] + rdx + cf;
+  cf, c[2] = a[2] + h + cf;
+  cf, c[3] = a[3] + h + cf;
+  
+  return c;
+}
+
+/**
+ * function __reduce5to4_rs
+ * @param {stack u64[5]} as - 5-limb of size 64 number
+ * @returns {reg u64[5]} - as % p in 4-limb representation
+ * 
+ * This function reduces the 5-limb number a % p. Inputs are not consumed.
+ * The representation is:
+ * h = a % p
+ * h = ( 2**0*a0 +  2**64*a1 + 2**128*a2 + 2**192*a3 + 2**256*a4 ) mod p
+*/
+inline fn __reduce5to4_rs(stack u64[5] as) -> reg u64[4]
+{
+  reg u64[5] a;
+  reg u64[4] c;
+  reg bool cf;
+  
+  // Operate in registers
+  a = #copy(as);
+  
+  // Shift bit 255 in high order limb and multipy by 2
+  ?{}, a[4] = #SHLD(a[4], a[3], 1);
+  a[3] &= mask63;
+  
+  // Multiply by 19 as 2^256=38
+  ?{}, a[4] = #IMULri ( a[4], 19 );
+  cf, c[0] = a[0] + a[4];
+  cf, c[1] = a[1] + 0 + cf;
+  cf, c[2] = a[2] + 0 + cf;
+  cf, c[3] = a[3] + 0 + cf;
+
+  return c;
+}

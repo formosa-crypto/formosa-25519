@@ -1,0 +1,62 @@
+require "shared_const.jinc"
+require "mul4.jinc"
+require "mul5.jinc"
+
+/**
+ * function ge25519_p1p1_to_p3
+ * @param {stack u64[16]} pp - Point in intermediate extended representation
+ * @returns {stack u64[18]} - Result point in extended representation
+ * 
+ * This function transforms from intermediate extended to extended representation.
+ * The input is in intermediate extended coordinates(e,f,g,h).
+ * The output is in projective coordinates (x,y,z,t).
+ * x = e*h
+ * y = f*g
+ * z = f*h
+ * t = e*g
+*/
+inline fn ge25519_p1p1_to_p3(stack u64[16] pp) -> stack u64[18]
+{
+	stack u64[18] r; 
+	
+	// x = e*h
+	r[0:5] = __mul5_sss(pp[0:4], pp[12:4]);
+	// y = f*g
+	r[5:5] = __mul5_sss(pp[4:4], pp[8:4]);
+	// z = f*h
+	r[10:4] = __mul4_sss(pp[4:4], pp[12:4]);
+	// t = e*g
+	r[14:4] = __mul4_sss(pp[0:4], pp[8:4]);
+	
+	return r;
+}
+
+/**
+ * function ge25519_p1p1_to_p3_19
+ * @param {stack u64[16]} pp - Point in intermediate extended representation
+ * @returns {stack u64[19]} - Result point in extended representation
+ * 
+ * This function transforms from intermediate extended to extended representation.
+ * The input is in intermediate extended coordinates(e,f,g,h).
+ * The z coordinate now has a 5-limb representation.
+ * The output is in projective coordinates (x,y,z,t).
+ * x = e*h
+ * y = f*g
+ * z = f*h
+ * t = e*g
+*/
+inline fn ge25519_p1p1_to_p3_19(stack u64[16] pp) -> stack u64[19]
+{
+	stack u64[19] r; 
+	
+	// x = e*h
+	r[0:5] = __mul5_sss(pp[0:4], pp[12:4]);
+	// y = f*g
+	r[5:5] = __mul5_sss(pp[4:4], pp[8:4]);
+	// z = f*h
+	r[10:5] = __mul5_sss(pp[4:4], pp[12:4]);
+	// t = e*g
+	r[15:4] = __mul4_sss(pp[0:4], pp[8:4]);
+	
+	return r;
+}

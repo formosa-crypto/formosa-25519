@@ -1,0 +1,27 @@
+require "shared_const.jinc"
+require "mul4.jinc"
+
+/**
+ * function ge25519_p1p1_to_p2
+ * @param {stack u64[16]} pp - Point in intermediate extended representation
+ * @returns {stack u64[12]} - Result point in projective representation
+ * 
+ * This function transforms from intermediate extended to projective representation.
+ * The input is in intermediate extended coordinates(e,f,g,h).
+ * The output is in projective coordinates (x,y,z).
+ * x = e*h
+ * y = f*g
+ * z = f*h
+*/
+inline fn ge25519_p1p1_to_p2(stack u64[16] pp) -> stack u64[12]
+{	
+	stack u64[12] r;
+	// x = e*h
+	r[0:4] = __mul4_sss(pp[0:4], pp[12:4]);
+	// y = f*g
+	r[4:4] = __mul4_sss(pp[4:4], pp[8:4]);
+	// z = f*h
+	r[8:4] = __mul4_sss(pp[4:4], pp[12:4]);
+	
+	return r;
+}

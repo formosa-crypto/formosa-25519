@@ -1,0 +1,360 @@
+require "shared_const.jinc"
+
+/*
+All multiplications use the adcx, adox x86 intrinsic.
+We add two registers and the lower result limb uses always the of,
+the higher uses the cf. The carries are then propagated to the next limb.
+This allows more efficient schoolbook multiplication.
+*/
+
+// Multiply x3(*2**192) with mu
+inline fn __barrett_c0
+( reg u64    x3,
+  reg u64[6] q,
+  reg u64    z, // zero
+  reg bool   cf of // cf = 0 and of = 0
+  ) ->
+  reg u64[6],
+  reg bool,
+  reg bool
+{
+  reg u64 c;
+	
+	// mu[0;2] can not change the upper 4 limbs of x*mu, hence we do not multiply them
+	(c, q[0]) 		= #MULX ( x3, mu[3] );
+	(q[2], q[1]) 	= #MULX ( x3, mu[4] );
+	cf, q[1]   		= #ADCX ( q[1], c, cf );
+	cf, q[2]   		= #ADCX ( q[2], z, cf ); // Clear cf
+
+  return q, cf, of;
+}
+
+// Multiply x4(*2**256) with mu
+inline fn __barrett_c1
+( reg u64    x4,
+  reg u64[6] q,
+  reg u64    z, // zero
+  reg bool   cf of // cf = 0 and of = 0
+  ) ->
+  reg u64[6],
+  reg bool,
+  reg bool
+{
+  reg u64 c rax;
+	
+	// mu[0,1] can not change the upper 4 limbs of x*mu, hence we do not multiply them
+	(c, rax) 		= #MULX ( x4, mu[2] );
+	of, q[0]		= #ADOX ( q[0], rax, of );
+  cf, q[1]		= #ADCX ( q[1], c, cf );
+  
+	(c, rax) 		= #MULX ( x4, mu[3] );
+	of, q[1]    = #ADOX ( q[1], rax, of );
+  cf, q[2]    = #ADCX ( q[2], c, cf );
+  
+	(q[3], rax)	= #MULX ( x4, mu[4] );
+	of, q[2]   	= #ADOX ( q[2], rax, of );
+	
+	cf, q[3]   	= #ADCX ( q[3], z, cf );
+	of, q[3]   	= #ADOX ( q[3], z, of ); // Clear of
+
+  return q, cf, of;
+}
+
+// Multiply x5(*2**320) with mu
+inline fn __barrett_c2
+( reg u64    x5,
+  reg u64[6] q,
+  reg u64    z, // zero
+  reg bool   cf of // cf = 0 and of = 0
+  ) ->
+  reg u64[6],
+  reg bool,
+  reg bool
+{
+  reg u64 c rax;
+	
+	// mu[0] can not change the upper 4 limbs of x*mu, hence we do not multiply it
+	(c, rax) 		= #MULX ( x5, mu[1] );
+	of, q[0]    = #ADOX ( q[0], rax, of );
+  cf, q[1]    = #ADCX ( q[1], c, cf );
+  
+	(c, rax) 		= #MULX ( x5, mu[2] );
+	of, q[1]    = #ADOX ( q[1], rax, of );
+  cf, q[2]    = #ADCX ( q[2], c, cf );
+  
+  (c, rax) 		= #MULX ( x5, mu[3] );
+	of, q[2]    = #ADOX ( q[2], rax, of );
+  cf, q[3]    = #ADCX ( q[3], c, cf );
+  
+	(q[4], rax) = #MULX ( x5, mu[4] );
+	of, q[3]   	= #ADOX ( q[3], rax, of );
+	
+	cf, q[4]   	= #ADCX ( q[4], z, cf );
+	of, q[4]   	= #ADOX ( q[4], z, of ); // Clear of
+
+  return q, cf, of;
+}
+
+// Multiply x6(*2**384) with mu
+inline fn __barrett_c3
+( reg u64    x6,
+  reg u64[6] q,
+  reg u64    z, // zero
+  reg bool   cf of // cf = 0 and of = 0
+  ) ->
+  reg u64[6],
+  reg bool,
+  reg bool
+{
+  reg u64 c rax;
+	
+	(c, rax) 		= #MULX ( x6, mu[0] );
+	of, q[0]    = #ADOX ( q[0], rax, of );
+  cf, q[1]    = #ADCX ( q[1], c, cf );
+  
+	(c, rax) 		= #MULX ( x6, mu[1] );
+	of, q[1]    = #ADOX ( q[1], rax, of );
+  cf, q[2]    = #ADCX ( q[2], c, cf );
+  
+  (c, rax) 		= #MULX ( x6, mu[2] );
+	of, q[2]    = #ADOX ( q[2], rax, of );
+  cf, q[3]    = #ADCX ( q[3], c, cf );
+  
+  (c, rax) 		= #MULX ( x6, mu[3] );
+	of, q[3]    = #ADOX ( q[3], rax, of );
+  cf, q[4]    = #ADCX ( q[4], c, cf );
+  
+	(q[5], rax) = #MULX ( x6, mu[4] );
+	of, q[4]   	= #ADOX ( q[4], rax, of );
+	
+	cf, q[5]   	= #ADCX ( q[5], z, cf );
+	of, q[5]   	= #ADOX ( q[5], z, of ); // Clear of
+
+  return q, cf, of;
+}
+
+// Multiply x7(*2**448) with mu
+inline fn __barrett_c4
+( reg u64    x7,
+  reg u64[6] q,
+  reg u64    z, // zero
+  reg bool   cf of // cf = 0 and of = 0
+  ) ->
+  reg u64[6],
+  reg bool,
+  reg bool
+{
+  reg u64 c rax;
+	
+	(c, rax) 		= #MULX ( x7, mu[0] );
+	of, q[1]    = #ADOX ( q[1], rax, of );
+  cf, q[2]    = #ADCX ( q[2], c, cf );
+  
+	(c, rax) 		= #MULX ( x7, mu[1] );
+	of, q[2]    = #ADOX ( q[2], rax, of );
+  cf, q[3]    = #ADCX ( q[3], c, cf );
+  
+  (c, rax) 		= #MULX ( x7, mu[2] );
+	of, q[3]    = #ADOX ( q[3], rax, of );
+  cf, q[4]    = #ADCX ( q[4], c, cf );
+  
+  (c, rax) 		= #MULX ( x7, mu[3] );
+	of, q[4]    = #ADOX ( q[4], rax, of );
+  cf, q[5]    = #ADCX ( q[5], c, cf );
+  
+	(c, rax) = #MULX ( x7, mu[4] );
+	of, q[5]   	= #ADOX ( q[5], rax, of );
+	
+	// Ignore carries, we only want lower four limbs of x
+	cf, c   	= #ADCX ( c, z, cf );
+	of, c   	= #ADOX ( c, z, of );
+
+  return q, cf, of;
+}
+
+// Multiply q0(*2**0) with L
+inline fn __mulL_c0
+( reg u64    q0,
+  reg u64[4] r2,
+  reg bool   cf of // cf = 0 and of = 0
+  ) ->
+  reg u64[4],
+  reg bool,
+  reg bool
+{
+  reg u64 c rax;
+  
+	(r2[1], r2[0])	= #MULX ( q0, L[0] );
+	(r2[2], rax) 		= #MULX ( q0, L[1] );
+  cf, r2[1]   		= #ADCX ( r2[1], rax, cf );
+  
+  (r2[3], rax) 		= #MULX ( q0, L[2] );
+  cf, r2[2]   		= #ADCX ( r2[2], rax, cf );
+  
+  (c, rax) 				= #MULX ( q0, L[3] );
+  cf, r2[3]   		= #ADCX ( r2[3], rax, cf );
+  
+  // We only want lower four limbs of q*L, as higher limbs will equal x anyways
+	// Ignore c
+	
+  return r2, cf, of;
+}
+
+// Multiply q1(*2**64) with L
+inline fn __mulL_c1
+( reg u64    q1,
+  reg u64[4] r2,
+  reg bool   cf of // cf = 0 and of = 0
+  ) ->
+  reg u64[4],
+  reg bool,
+  reg bool
+{
+  reg u64 c rax;
+
+	(c, rax)		= #MULX ( q1, L[0] );
+	of, r2[1]		= #ADOX ( r2[1], rax, of );
+  cf, r2[2]		= #ADCX ( r2[2], c, cf );
+  
+  (c, rax)		= #MULX ( q1, L[1] );
+	of, r2[2]		= #ADOX ( r2[2], rax, of );
+  cf, r2[3]		= #ADCX ( r2[3], c, cf );
+  
+  (c, rax)		= #MULX ( q1, L[2] );
+	of, r2[3]		= #ADOX ( r2[3], rax, of );
+	
+	// We only want lower four limbs of q*L, as higher limbs will equal x anyways
+	// Ignore c, q1*L[3]
+	
+  return r2, cf, of;
+}
+
+// Multiply q2(*2**128) with L
+inline fn __mulL_c2
+( reg u64    q2,
+  reg u64[4] r2,
+  reg bool   cf of // cf = 0 and of = 0
+  ) ->
+  reg u64[4],
+  reg bool,
+  reg bool
+{
+  reg u64 c rax;
+	(c, rax)		= #MULX ( q2, L[0] );
+	of, r2[2]		= #ADOX ( r2[2], rax, of );
+  cf, r2[3]		= #ADCX ( r2[3], c, cf );
+  
+  (c, rax)		= #MULX ( q2, L[1] );
+	of, r2[3]		= #ADOX ( r2[3], rax, of );
+	
+	// We only want lower four limbs of q*L, as higher limbs will equal x anyways
+	// Ignore c, q2*L[2], q2*L[3]
+
+  return r2, cf, of;
+}
+
+/**
+ * function sc25519_barrett
+ * @param {reg u64[8]} x - number in 64-bit limb representation
+ * @returns {reg u64[4]} - x % L in 4-limb representation
+ * 
+ * This function reduces the 8-limb number x below curve order L.
+ * The representation is:
+ * r = x % L
+ * r = (  2**0*x0 +   2**64*x1 + 2**128*x2 + 2**192*x3 +
+ 			  2**256*x4 +  2**320*x5 + 2**384*x6 + 2**448*x7 ) mod L
+*/
+fn sc25519_barrett(reg u64[8] x) -> reg u64[4]
+{
+	reg u64 z rax rdx;
+	reg u64[4] r r2 t;
+	reg u64[6] q;
+	stack u64[4] q3s;
+	reg bool cf of;
+	inline int i;
+	
+	?{CF=cf, OF=of}, z = #set0();
+	
+	// Multiply x with mu
+	// Multiply 3rd limb
+	rdx = x[3];
+	q, cf, of = __barrett_c0(rdx, q, z, cf, of);
+	
+	// Multiply 4th limb
+	rdx = x[4];
+	q, cf, of = __barrett_c1(rdx, q, z, cf, of);
+	
+	// Multiply 5th limb
+	rdx = x[5];
+	q, cf, of = __barrett_c2(rdx, q, z, cf, of);
+	
+	// Multiply 6th limb
+	rdx = x[6];
+	q, cf, of = __barrett_c3(rdx, q, z, cf, of);
+	
+	// Multiply 7th limb
+	rdx = x[7];
+	q, cf, of = __barrett_c4(rdx, q, z, cf, of);
+	
+	for i=0 to 4{
+		q3s[i] = q[2+i];
+	}
+	
+	// Multiply with L for final reduction
+	// First limb
+	rdx = q3s[0];
+	r2, cf, of = __mulL_c0(rdx, r2, cf, of);
+	
+	// Second limb
+	rdx = q3s[1];
+	r2, cf, of = __mulL_c1(rdx, r2, cf, of);
+	
+	// Third limb
+	?{CF=cf, OF=of}, z = #set0();
+	rdx = q3s[2];
+	r2, cf, of = __mulL_c2(rdx, r2, cf, of);
+	
+	// Forth limb
+	rax = q3s[3];
+	rdx, rax = rax * L[0];
+	cf, r2[3] += rax;
+	// We only want lower four limbs of q*L, as higher limbs will equal x anyways
+	// Ignore c, q3*L[1], q3*L[2], q3*L[3]
+	
+	// Subtract q*L from x
+	r[0] = x[0]; // Read to register
+	cf, r[0] -= r2[0];
+	t[0] = r[0]; // Set t=r for next step
+	
+	for i=1 to 4
+	{
+		r[i] = x[i]; // Read to register
+		cf, r[i] -= r2[i] - cf;
+		t[i] = r[i]; // Set t=r for next step
+	}
+	
+	// Subtract up to two L, to end below L
+	cf, t[0] -= L[0];
+	cf, t[1] -= L[1] - cf;
+	cf, t[2] -= L[2] - cf;
+	cf, t[3] -= L[3] - cf;
+	
+	// Always take the non-negative result
+	for i=0 to 4
+	{
+		r[i] = #CMOVcc(!cf, t[i], r[i]);
+		t[i] = r[i];
+	}
+	
+	cf, t[0] -= L[0];
+	cf, t[1] -= L[1] - cf;
+	cf, t[2] -= L[2] - cf;
+	cf, t[3] -= L[3] - cf;
+	
+	for i=0 to 4
+	{
+		r[i] = #CMOVcc(!cf, t[i], r[i]);
+	}
+	
+	return r;
+}
