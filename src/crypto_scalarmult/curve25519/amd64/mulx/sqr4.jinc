@@ -7,7 +7,7 @@ inline fn __sqr4_rr(reg u64[4] f) -> reg u64[4]
   reg u64[4] h r;
   reg u64 z _38 fx;
 
-  of, cf, _, _, _, z = #set0();
+  ?{ of, cf }, z = #set0();
 
   // 0
   fx = f[0];
@@ -111,7 +111,7 @@ inline fn __it_sqr4_x2(reg u64[4] f, reg u32 i) -> reg u64[4]
     f = __sqr4_rr(h);
 
     i = _i;
-    _,_,_,zf,i = #DEC_32(i);
+    ?{ zf }, i = #DEC_32(i);
   } (!zf)
 
   return f;

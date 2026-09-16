@@ -264,7 +264,7 @@ fn _it_sqr4_p(reg ptr u64[4] x, reg u32 i) -> reg ptr u64[4]
 
   while {
     x = _sqr4_p(x);
-    _,_,_,zf,i = #DEC_32(i);
+    ?{ zf} ,i = #DEC_32(i);
   }(!zf)
 
   return x;

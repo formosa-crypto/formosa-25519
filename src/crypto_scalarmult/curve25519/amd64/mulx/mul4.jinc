@@ -144,7 +144,7 @@ inline fn __mul4_rsr(stack u64[4] fs, reg u64[4] g) -> reg u64[4]
   reg u64[4] h r;
   reg u64 _38 f z;
 
-  of, cf, _, _, _, z = #set0();
+  ?{ of, cf }, z = #set0();
 
   f = fs[0];
   h, r, cf, of = __mul4_c0(      f, g, z, cf, of);
@@ -170,7 +170,7 @@ inline fn __mul4_rpr(reg ptr u64[4] fp, reg u64[4] g) -> reg u64[4]
   reg u64[4] h r;
   reg u64 _38 f z;
 
-  of, cf, _, _, _, z = #set0();
+  ?{ of, cf }, z = #set0();
 
   f = fp[0];
   h, r, cf, of = __mul4_c0(      f, g, z, cf, of);
@@ -270,7 +270,7 @@ inline fn __mul4_a24_rs(stack u64[4] fs, inline u64 a24) -> reg u64[4]
 
      _, r0 += 0 + cf;
 
-  _, _, _, _, _, r0 = #IMULri (r0, 38);
+  r0 *= 38;
 
   cf, h[0] += r0;
   cf, h[1] += 0 + cf;

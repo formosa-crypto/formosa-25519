@@ -28,7 +28,7 @@ inline fn __reduce4
    _, r[0]     = #ADOX ( r[0], z, of );
 
   //
-  _,_,_,_,_,lo = #IMULri ( r[0], 38 );
+  lo = r[0] * 38;
 
   cf, h[0] += lo;
   cf, h[1] += z + cf;
