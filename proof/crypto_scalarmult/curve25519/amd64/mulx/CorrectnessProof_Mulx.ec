@@ -1,5 +1,5 @@
 require import Real Bool Int IntDiv.
-from Jasmin require import JModel.
+from Jasmin require import JModel_x86.
 require import CorrectnessProof_Ref4 Curve25519_Procedures Ref4_scalarmult_s Mulx_scalarmult_s Zp_limbs Zp_25519 CorrectnessProof_ToBytes.
 
 import Zp Ring.IntID.
@@ -821,50 +821,36 @@ proof.
         2*l{1} = i{2} /\
         l{1} = i1 /\
         i{2} = i2  /\
-        4 <= i{2}  /\
         2 <= l{1}
         ==>
         res{1} = res{2}).
     auto => />. move => &1 &2 *.
-    exists(f{2}, i1) => />. smt(). smt().
+    exists(f{2}, i1) => /> /#. smt().
     proc *.
-    call eq_spec_impl_it_sqr_aux_mulx. skip => />. smt(W32.to_uint_cmp).
-     proc; simplify. inline *.
-      async while
-      [ (fun r => 0%r < ii%r), (ii{1} - 1)%r ]
-      [ (fun r => 0%r < ii%r), (ii{1} - 1)%r ]
-        (0 < ii{1} /\ 0 < ii{2}) (!(0 < ii{1}))
-      :
-      (
-        (ii{2} %% 2 = 0   => 2*ii{1} - 1 = ii{2})  /\
-        (ii{2} %% 2 <> 0  => 2*ii{1}     = ii{2})  /\
-        0 <= ii{1} /\
-        0 <= ii{2}
-      ).
-    auto => />;  move => &1 &2 * /#.
-    auto => />;  move => &1 &2 * /#.
-    auto => />;  move => &1 &2 * /#.
-    auto => />;  move => &2 * /#.
-    move => &1; auto => />.
-    move => v1 v2; auto => />.
-    while(
-        0 <= ii{1} /\
-        0 <= ii{2} /\
-        (ii{2} %% 2 = 0   => 2*ii{1} - 1 = ii{2})  /\
-        (ii{2} %% 2 <> 0  => 2*ii{1}     = ii{2})  /\
-        1 <= counter{2} /\
-        f{1} = zexp h{2} (exp 2 counter{2})
-    ) => //=.
-   auto => />; move => &1 &2 H H0 H1 H2 H3 H4 H5 H6 H7.
-   smt( ZModpRing.exprM Ring.IntID.exprN Ring.IntID.exprN1 Ring.IntID.exprD_nneg).
-   auto => />; move => &1 &2 H H0 H1 H2 H3 H4 H5.
-   smt( ZModpRing.exprM Ring.IntID.exprN Ring.IntID.exprN1 Ring.IntID.exprD_nneg).
-    while true (ii) => //.
-    move => H; auto => />. skip => />; move => &hr H0 H1 H2 H3 H4 H5 /#.
-    while true (ii) => //. move => H; auto => /> /#. skip => /> /#.
-    wp. skip => />.
-admitted.
-
+    call eq_spec_impl_it_sqr_aux_mulx. skip => /> &1 /#.
+    clear I1 I2; subst.
+     proc; simplify.
+while {1} (0 <= ii{1} < i1 /\ f{1} = zexp a{1} (exp 4 (i1 - ii{1}))) ii{1}.
++ auto; inline *; auto => &1 /> _ ? ?; (split; last smt()); split; first smt().
+  rewrite !expE 1://; first smt(StdOrder.IntOrder.expr_ge0).
+  congr; have /# := Ring.IntID.exprD_nneg 4 (i1 - ii{1}) 1.
+while {2} (0 <= ii{2} < 2 * i1 /\ h{2} = zexp a{1} (exp 2 (2 * i1 - ii{2}))) ii{2}.
++ auto; inline *; auto => &2 /> _ ? ?; (split; last smt()); first split; first smt().
+  rewrite !expE 1://; first smt(StdOrder.IntOrder.expr_ge0).
+  congr; have /# := Ring.IntID.exprD_nneg 2 (2 * i1 - ii{2}) 1.
+inline *; auto => &1 &2 /> _; split.
++ split; first smt().
+  congr; rewrite -{1}pow2_1; congr; smt().
+move=> j; split; first smt().
+move=> ??; have ->> : j = 0 by smt().
+move=> ?; split; first split; first smt().
++ rewrite expE 1://; congr.
+  rewrite /= -{1}(expr1 4); congr; smt().
+move=> j; split; first smt().
+move=> ??; have ->> : j = 0 by smt().
+move => _ /=; congr.
+by rewrite exprM.
+qed.
 
 lemma eq_spec_impl_it_sqr_x2_mulx (i1: int) (i2: int):
     i1 = i2 => 2 <= i1 => i2 %% 2 = 0 =>

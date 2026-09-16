@@ -1,5 +1,5 @@
 require import Real Bool Int IntDiv.
-from Jasmin require import JModel JUtils.
+from Jasmin require import JModel_x86 JUtils.
 require import Curve25519_Procedures Ref4_scalarmult_s Zp_limbs Zp_25519 CorrectnessProof_ToBytes.
 
 import Zp Ring.IntID.

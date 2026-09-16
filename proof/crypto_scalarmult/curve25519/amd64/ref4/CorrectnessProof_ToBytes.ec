@@ -1,5 +1,5 @@
 require import Real Bool Int IntDiv List StdOrder BitEncoding.
-from Jasmin require import JModel JUtils.
+from Jasmin require import JModel_x86 JUtils.
 require import Ref4_scalarmult_s Zp_limbs Zp_25519.
 
 import Zp Ring.IntID IntOrder BS2Int.
@@ -792,7 +792,7 @@ lemma h_to_bytes_no_reduction (r: Rep4):
   ].
 proof.
   proc.
-  seq 9: (#pre /\ valRep4 ff3 = valRep4 r).
+  seq 8: (#pre /\ valRep4 ff3 = valRep4 r).
   seq 1 : (#pre /\ msb1 = W64.zerow). call h_extract_msb0. auto => />.
   + move: (limb4_ltP_cmp r). smt(limb4_ltP_cmp).
   seq 1 : (#pre /\ _tt = f.[3]). call (h_msb_not_set (r.[3])). auto => />.
@@ -827,7 +827,7 @@ lemma h_to_bytes_cminusP_part1 (r: Rep4):
   ].
 proof.
   proc.
-  seq 9: (#pre /\ valRep4 ff3 = valRep4 r - p).
+  seq 8: (#pre /\ valRep4 ff3 = valRep4 r - p).
   seq 1 : (#pre /\ msb1 = W64.zerow). call h_extract_msb0. auto => />.
   + move: (limb4_lt2_255_cmp r) pVal. smt().
   seq 1 : (#pre /\ _tt = f.[3]). call (h_msb_not_set (r.[3])). auto => />.
@@ -864,7 +864,7 @@ lemma h_to_bytes_cminusP_part2 (r: Rep4):
   ].
 proof.
   proc.
-  seq 9: (#pre /\ valRep4 ff3 = valRep4 r - p).
+  seq 8: (#pre /\ valRep4 ff3 = valRep4 r - p).
   seq 1 : (#pre /\ msb1 = W64.onew). call h_extract_msb1. auto => />.
   + move => H H0. move: (limb4_geq_2_255_cmp r) pVal. smt().
   seq 1 : (#pre /\ _tt = f.[3] - W64.of_int (exp 2 63)
@@ -902,7 +902,7 @@ lemma h_to_bytes_cminus2P (r: Rep4):
   ].
 proof.
   proc.
-  seq 9: (#pre /\ valRep4 ff3 = valRep4 r - p - p).
+  seq 8: (#pre /\ valRep4 ff3 = valRep4 r - p - p).
   seq 1 : (#pre /\ msb1 = W64.onew). call h_extract_msb1. auto => />.
   + move => H H0. move: (limb4_geq_2_255_cmp r) pVal. smt().
   seq 1 : (#pre /\ _tt = f.[3] - W64.of_int (exp 2 63)

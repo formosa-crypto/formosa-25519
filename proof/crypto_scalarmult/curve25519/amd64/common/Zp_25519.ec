@@ -1,6 +1,6 @@
 require import Int.
 
-from Jasmin require import JModel.
+from Jasmin require import JModel_x86.
 
 import Ring.IntID.
 

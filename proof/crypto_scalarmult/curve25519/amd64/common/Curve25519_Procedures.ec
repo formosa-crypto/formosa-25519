@@ -1,5 +1,5 @@
 require import Bool List Int IntDiv.
-from Jasmin require import JModel.
+from Jasmin require import JModel_x86.
 require import Curve25519_Spec Curve25519_Operations Zp_25519.
 
 import Zp Ring.IntID.
@@ -596,7 +596,6 @@ qed.
 lemma eq_proc_op_scalarmult (k u : W256.t) :
   hoare[CurveProcedures.scalarmult : k' = k /\ u' = u ==> res = spec_scalarmult k u].
 proof.
-  rewrite -eq_op_scalarmult.
   proc.
   pose dk := spec_decode_scalar_25519 k.
   have kb0f  : (dk).[0] = false. (* k bit 0 false *)
@@ -604,13 +603,12 @@ proof.
   ecall (eq_proc_op_scalarmult_internal u'' k').
   ecall (eq_proc_op_decode_u_coordinate u').
   ecall (eq_proc_op_decode_scalar k').
-  auto.
+  by wp; skip => &m; rewrite -eq_op_scalarmult.
  qed.
 
 lemma eq_proc_op_scalarmult_base (k : W256.t) :
   hoare[CurveProcedures.scalarmult_base : k' = k ==> res = spec_scalarmult_base k].
 proof.
-  rewrite -eq_op_scalarmult_base.
   proc.
   pose dk := spec_decode_scalar_25519 k.
   have kb0f  : (dk).[0] = false. (* k bit 0 false *)
@@ -618,5 +616,5 @@ proof.
   ecall (eq_proc_op_scalarmult_internal u'' k').
   call (eq_proc_op_decode_u_coordinate_base).
   call (eq_proc_op_decode_scalar k).
-  auto.
+  by wp; skip => &m; rewrite -eq_op_scalarmult_base.
  qed.

@@ -1,5 +1,5 @@
 require import List Int.
-from Jasmin require import JModel.
+from Jasmin require import JModel_x86.
 require import Zp_25519.
 
 import Zp.

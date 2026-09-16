@@ -1,5 +1,5 @@
 require import Int Real.
-from Jasmin require import JModel.
+from Jasmin require import JModel_x86.
 require import Curve25519_Spec Curve25519_Procedures Curve25519_Operations Zp_25519.
 
 import Zp.

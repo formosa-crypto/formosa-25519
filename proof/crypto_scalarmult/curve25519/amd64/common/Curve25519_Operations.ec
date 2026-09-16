@@ -1,5 +1,5 @@
 require import Bool List Int IntDiv.
-from Jasmin require import JModel.
+from Jasmin require import JModel_x86.
 require import Curve25519_Spec Zp_25519 Zp_limbs EClib.
 
 import Zp StdOrder.IntOrder Ring.IntID.
