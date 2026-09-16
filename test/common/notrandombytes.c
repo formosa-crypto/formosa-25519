@@ -85,7 +85,7 @@ static void chacha20_core(uint32_t output[16], const uint32_t input[16])
   output[15] = x15;
 }
 
-static const uint8_t sigma[16] = "expand 32-byte k";
+static const uint8_t sigma[16] = { 'e', 'x', 'p', 'a', 'n', 'd', ' ', '3', '2', '-', 'b', 'y', 't', 'e', ' ', 'k' };
 
 static void chacha20_init(uint32_t x[16], const uint8_t n[8], const uint8_t k[32])
 {
