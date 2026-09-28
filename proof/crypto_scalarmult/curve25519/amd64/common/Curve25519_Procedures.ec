@@ -521,7 +521,7 @@ move => &hr [H] [H0] [H1] [H2] [H3] [H4] [H5] [H6] [H7] H8.
   rewrite /op_it_sqr_x2 /op_it_sqr H8 -H11. congr.
   rewrite exprM => />. move => H12.
   rewrite !eq_op_it_sqr1; first smt(). smt().
-  rewrite !/op_it_sqr. rewrite H3 H2 H1 -H8 H11. rewrite -ZModpRing.exprM => />.
+  rewrite /op_it_sqr. rewrite H3 H2 H1 -H8 H11. rewrite -ZModpRing.exprM => />.
   congr. rewrite H4.
   have ->: 2 * 2 ^ (i{hr} - 1) = 2^1 * 2 ^ (i{hr} - 1). rewrite expr1 //.
   rewrite -exprD_nneg //. smt().
@@ -549,7 +549,7 @@ proof.
   move=> ? ->. move=> ? ->.
   move=> ? ->. move=> ? ->.
   move=> ? ->. move=> ? ->.
-  rewrite op_invert2E /sqr /= H /#.
+  rewrite op_invert2E /= H /#.
 qed.
 
 equiv eq_sqr:

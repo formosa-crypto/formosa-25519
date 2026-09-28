@@ -688,10 +688,10 @@ proc; simplify.
   symmetry.
   skip => />. move => &1 H.
   do split. smt().
-    rewrite /DEC_32 /rflags_of_aluop_nocf_w => />. rewrite /ZF_of => *.
+    rewrite /DEC_32 /rflags_of_aluop_nocf_w => /> *.
     smt(W32.to_uint_cmp).
-    rewrite /DEC_32 /rflags_of_aluop_nocf_w => />. rewrite /ZF_of => *.
-  rewrite to_uintB. rewrite uleE to_uint1. smt(W32.to_uint_cmp). rewrite to_uint1 //.
+    rewrite /DEC_32 /rflags_of_aluop_nocf_w => /> *.
+  rewrite to_uintB. rewrite uleE to_uint1 /#. rewrite to_uint1 //.
   rewrite /DEC_32 /rflags_of_aluop_nocf_w => />. rewrite /ZF_of => *.
   by rewrite -{2}W32.to_uint0 -to_uint_eq /#.
 rewrite /DEC_32 /rflags_of_aluop_nocf_w => />. rewrite /ZF_of => *.
