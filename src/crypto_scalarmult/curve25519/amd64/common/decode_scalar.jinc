@@ -12,17 +12,3 @@ inline fn __decode_scalar(reg u64[4] k) -> stack u8[32]
 
   return ks;
 }
-
-inline fn __decode_scalar_shl1(reg u64[4] k) -> stack u64[4]
-{
-  stack u64[4] ks;
-
-  k[3] <<= 1;
-  k[0] &= 0xfffffffffffffff8;
-  k[3] |= 0x8000000000000000;
-
-  ks = #copy(k);
-
-  return ks;
-}
-
