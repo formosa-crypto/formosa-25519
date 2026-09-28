@@ -30,16 +30,6 @@ inline fn __sub5_sss(stack u64[5] fs gs) -> stack u64[5]
   return hs;
 }
 
-inline fn __sub5_rss(stack u64[5] fs gs) -> reg u64[5]
-{
-  reg u64[5] h f;
-
-  f = #copy(fs);
-  h = __sub5_rrs(f, gs);
-
-  return h;
-}
-
 inline fn __sub5_rsr(stack u64[5] fs, reg u64[5] g) -> reg u64[5]
 {
   inline int i;

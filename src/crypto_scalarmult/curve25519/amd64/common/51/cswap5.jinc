@@ -78,36 +78,3 @@ inline fn __cswap5_ssss(
 
   return xs, ys;
 }
-
-inline fn __cswap5_rsrs(
-  reg   u64[5] x,
-  stack u64[5] ys,
-  reg   u64 swap)
-  ->
-  reg   u64[5],
-  stack u64[5]
-{
-  inline int i;
-  reg u64[5] y;
-  reg u64 t mask;
-
-  mask = 0;
-  mask -= swap;
-
-  for i=0 to 5
-  {
-    y[i] = ys[i];
-
-    t  = x[i];
-    t ^= y[i];
-    t &= mask;
-
-    x[i] ^= t; // ^ (x[i] ^ y[i]) if swap == 1 
-    y[i] ^= t;
-
-    ys[i] = y[i];
-  }
-
-  return x, ys;
-}
-

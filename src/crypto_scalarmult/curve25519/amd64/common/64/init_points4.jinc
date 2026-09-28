@@ -27,30 +27,3 @@ inline fn __init_points4(
   //     (1,   0, init, 1)
   return x2, z2r, x3,  z3;
 }
-
-inline fn __init_points4_x3()
-  ->
-  stack u64[4],
-  reg   u64[4],
-  stack u64[4]
-{
-  inline int i;
-  stack u64[4] f1s f3s;
-  reg   u64[4] f2;
-  reg   u64 z;
-
-  ?{}, z = #set0();
-
-  f1s[0] = 1;
-  f2[0]  = 1;
-  f3s[0] = 1;
-
-  for i=1 to 4
-  { f1s[i] = z;
-    f2[i]  = z;
-    f3s[i] = z;
-  }
-
-  return f1s, f2, f3s;
-}
-
