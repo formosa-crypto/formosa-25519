@@ -148,7 +148,7 @@ lemma helper_lemma_msb_is_not_set (f: W64.t):
 proof.
   auto => />. rewrite /LEA_64 => *.
   have E: W64.to_uint (f + f `>>` W8.of_int 1) = W64.to_uint f.
-  rewrite to_uint_shr //= !to_uintD !modz_small /absz //=.
+  rewrite to_uint_shr //= !to_uintD !modz_small //=.
   smt(). smt(). smt(W64.map2_bits2w W64.to_uintK).
 qed.
 
@@ -172,7 +172,7 @@ lemma helper_lemma_remove_msb (f: W64.t):
   exp 2 63 <= W64.to_uint f < exp 2 64 => LEA_64 (f + f) `>>` W8.one = f - W64.of_int (exp 2 63).
 proof.
   auto => />. rewrite /LEA_64 => *.
-  rewrite shr_shrw //= addE !/ulift2 of_intE => />. rewrite of_intE.
+  rewrite shr_shrw //= addE /ulift2 of_intE => />. rewrite of_intE.
   have !->: (W64.to_uint f + W64.to_uint f) %% 18446744073709551616 = (W64.to_uint f + W64.to_uint f) - 18446744073709551616. smt().
   rewrite !to_uintN !of_uintK.
   have !->: - 9223372036854775808 %% exp 2 64 = 9223372036854775808 - exp 2 64. smt(). auto => />.
@@ -189,7 +189,7 @@ proof.
   auto => />. move => H H0.
   have ->: (SAR_64 t ((of_int 63))%W8).`6 = W64.zerow.
   + rewrite /SAR_64 /shift_mask /rflags_OF //= sarE /min => />.
-  rewrite init_bits2w bits2wE -iotaredE /min //=.
+  rewrite init_bits2w bits2wE -iotaredE //=.
   rewrite limb4_msbw0 //=.
   + rewrite /W64.zerow /W64.zero bits2wE /int2bs /mkseq -iotaredE => />.
   have ->: invw W64.zerow = W64.onew.
@@ -197,7 +197,7 @@ proof.
   + rewrite /W64.onew of_intE bits2wE /int2bs /mkseq -iotaredE => />.
   + rewrite wordP => i ib. rewrite !initiE 1,2:/# //= initiE 1:/# //= 1:/#.
   rewrite wordP => i ib.
-  rewrite /W64.onew !of_intE !bits2wE !/int2bs !/mkseq -!iotaredE => />.
+  rewrite /W64.onew !of_intE !bits2wE /int2bs /mkseq -!iotaredE => />.
   rewrite !initiE 1,2:/# //= /#.
 qed.
 
@@ -206,14 +206,14 @@ proof.
   auto => />. move => H H0.
   have ->: (SAR_64 t ((of_int 63))%W8).`6 = W64.onew.
   + rewrite /SAR_64 /shift_mask /rflags_OF //= sarE /min => />.
-  rewrite init_bits2w bits2wE -iotaredE /min //=.
+  rewrite init_bits2w bits2wE -iotaredE //=.
   rewrite limb4_msbw1 //=.
   + rewrite /W64.onew of_intE bits2wE /int2bs /mkseq -iotaredE => />.
   have ->: invw W64.onew = W64.zerow.
   + rewrite /invw mapE /W64.zerow /W64.zero bits2wE /int2bs /mkseq -iotaredE => />.
   + rewrite wordP => i ib. rewrite !initiE 1,2:/# //=. smt().
   rewrite wordP => i ib.
-  rewrite /W64.onew !of_intE !bits2wE !/int2bs !/mkseq -!iotaredE => />.
+  rewrite /W64.onew !of_intE !bits2wE /int2bs /mkseq -!iotaredE => />.
   rewrite !initiE 1,2:/# //= /#.
 qed.
 
@@ -247,8 +247,8 @@ lemma limb4_add19_tt_cmp_ltP r __tt:
   0 <= W64.to_uint (add_l4 r __tt 19) /\
   (0 <= W64.to_uint (add_l4 r __tt 19) => W64.to_uint (add_l4 r __tt 19) < 9223372036854775808).
 proof.
-  rewrite !addcE !/add_carry !/carry_add !b2i0 => />.
-  rewrite !valRep4E !pVal !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  rewrite !addcE /carry_add !b2i0 => />.
+  rewrite !valRep4E !pVal /to_list /val_digits /mkseq -!iotaredE => />.
   rewrite !mulzDr -!mulzA !to_uintD !of_uintK (modz_small 19 (exp 2 64)) 1:/# => />.
   move: (limb4_ltP_cmp r) W64.to_uint_cmp. smt().
 qed.
@@ -263,7 +263,7 @@ lemma limb4_add19_equiv_ltP r:
   valRep4 r + 19 = valRep4 (add_to_limb r r.[3] 19)).
 proof.
   rewrite pVal -valRep4_equiv_representation.
-  rewrite !valRep4E !/to_list !/val_digits !/mkseq -!iotaredE => />. smt(W64.to_uint_cmp).
+  rewrite !valRep4E /to_list /val_digits /mkseq -!iotaredE => />. smt(W64.to_uint_cmp).
 qed.
 
 lemma limb4_add19_equiv_geqP_lt2P r:
@@ -277,7 +277,7 @@ lemma limb4_add19_equiv_geqP_lt2P r:
   valRep4 r + 19 = valRep4 (add_to_limb r r.[3] 19)).
 proof.
   rewrite pVal -valRep4_equiv_representation.
-  rewrite !valRep4E !/to_list !/val_digits !/mkseq -!iotaredE => />. smt(W64.to_uint_cmp).
+  rewrite !valRep4E /to_list /val_digits /mkseq -!iotaredE => />. smt(W64.to_uint_cmp).
 qed.
 
 lemma limb4_add38_sub2_63_equiv_geq2P r:
@@ -299,7 +299,7 @@ proof.
   move => H H0 H1.
   do split. rewrite H1. move: W64.to_uint_cmp. smt().
   move => H2 H3. rewrite -H3.
-  move: H H0 H1 H2 H3. rewrite !valRep4E !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  move: H H0 H1 H2 H3. rewrite !valRep4E /to_list /val_digits /mkseq -!iotaredE => />.
   + move: W64.to_uint_cmp. smt(W64.map2_bits2w W64.to_uintK).
 qed.
 
@@ -318,7 +318,7 @@ lemma limb4_add38_minus_equiv_geqP_lt2P r:
   valRep4 (add_to_limb r (r.[3] - (of_int 9223372036854775808)%W64) 38)).
 proof.
   move: (limb4_geq_2_255_cmp r) W64.to_uint_cmp.
-  rewrite !valRep4E !pVal !/to_list !/val_digits !/mkseq -!iotaredE => />. smt().
+  rewrite !valRep4E !pVal /to_list /val_digits /mkseq -!iotaredE => />. smt().
 qed.
 
 lemma limb4_add19_cmp_geqP_lt2_255 r:
@@ -330,8 +330,8 @@ valRep4 r + 19 = valRep4 (add_to_limb r r.[3] 19) =>
 (9223372036854775808 <= W64.to_uint (add_l4 r r.[3] 19) =>
  W64.to_uint (add_l4 r r.[3] 19) < 18446744073709551616).
 proof.
-  rewrite !addcE !/add_carry !/carry_add !b2i0 => />.
-  rewrite !valRep4E !pVal !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  rewrite !addcE /carry_add !b2i0 => />.
+  rewrite !valRep4E !pVal /to_list /val_digits /mkseq -!iotaredE => />.
   rewrite !mulzDr -!mulzA !to_uintD !of_uintK (modz_small 19 (exp 2 64)) 1:/# => />.
   move: W64.to_uint_cmp limb4_gtP_cmp. smt().
 qed.
@@ -351,9 +351,9 @@ valRep4 (add_to_limb r (r.[3] - (of_int 9223372036854775808)%W64) 38) =>
  9223372036854775808).
 proof.
   move => H H0 H1 H2.
-  do split. smt(W64.to_uint_cmp). move => H3. rewrite !addcE !/carry_add !b2i0 => />.
+  do split. smt(W64.to_uint_cmp). move => H3. rewrite !addcE /carry_add !b2i0 => />.
   + rewrite to_uintD. rewrite !H1.
-  + move: H H0 H1 H2 H3. rewrite !valRep4E !pVal !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  + move: H H0 H1 H2 H3. rewrite !valRep4E !pVal /to_list /val_digits /mkseq -!iotaredE => />.
   + move: W64.to_uint_cmp. smt(W64.ge2_modulus W64.to_uintK_small).
 qed.
 
@@ -374,14 +374,14 @@ W64.to_uint (add_l4 r (r.[3] - (of_int 9223372036854775808)%W64) 38) /\
  18446744073709551616).
 proof.
   move => H H0 H1 H2.
-  do split. rewrite !addcE !/carry_add !b2i0 => />.
+  do split. rewrite !addcE /carry_add !b2i0 => />.
   rewrite to_uintD. rewrite H1.
   + move: H H1 H2 pVal W64.to_uint_cmp.
-  + rewrite !valRep4E !pVal !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  + rewrite !valRep4E !pVal /to_list /val_digits /mkseq -!iotaredE => />.
   + smt(W64.ge2_modulus W64.to_uintK_small).
   move => H3.
   + move: H H1 H2 pVal W64.to_uint_cmp.
-  + rewrite !valRep4E !pVal !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  + rewrite !valRep4E !pVal /to_list /val_digits /mkseq -!iotaredE => />.
   + smt(W64.ge2_modulus W64.to_uintK_small).
 qed.
 
@@ -396,8 +396,8 @@ valRep4
 valRep4 (add_to_limb r r.[3] 19) -
 57896044618658097711785492504343953926634992332820282019728792003956564819968.
 proof.
-  rewrite !addcE !/add_carry !/carry_add !b2i0 => />.
-  rewrite !valRep4E !pVal !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  rewrite !addcE /carry_add !b2i0 => />.
+  rewrite !valRep4E !pVal /to_list /val_digits /mkseq -!iotaredE => />.
   rewrite !mulzDr -!mulzA !to_uintD !of_uintK (modz_small 19 (exp 2 64)) 1:/# => />.
   case (18446744073709551616 <= W64.to_uint r.[0] + 19 = false) => C. rewrite !C !b2i0 => />.
   + have !->: 18446744073709551616 <= W64.to_uint r.[1] = false. move: W64.to_uint_cmp. smt().
@@ -427,8 +427,8 @@ lemma limb4_set_f3_gtP_lt2P r:
   add_l4 r (r.[3] - (of_int 9223372036854775808)%W64) 38] =
   valRep4 (add_to_limb r (r.[3] - (of_int 9223372036854775808)%W64) 38).
 proof.
-  rewrite !addcE !/add_carry !/carry_add !b2i0 => />.
-  rewrite !valRep4E !pVal !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  rewrite !addcE /carry_add !b2i0 => />.
+  rewrite !valRep4E !pVal /to_list /val_digits /mkseq -!iotaredE => />.
 qed.
 
 lemma limb4_set_f3_gt2P r:
@@ -448,8 +448,8 @@ lemma limb4_set_f3_gt2P r:
 proof.
   move => H H0 H1 H2. rewrite -H2 => />.
   move: H H0 H1 H2.
-  rewrite !addcE !/add_carry !/carry_add !b2i0 => />.
-  rewrite !valRep4E !pVal !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  rewrite !addcE /carry_add !b2i0 => />.
+  rewrite !valRep4E !pVal /to_list /val_digits /mkseq -!iotaredE => />.
   move: W64.to_uint_cmp. smt(W64.to_uintB).
 qed.
 
@@ -460,7 +460,7 @@ lemma limb4_minus_2_63_equiv r:
   W64.to_uint (r.[3] - (of_int (exp 2 63))%W64) = W64.to_uint r.[3] - 9223372036854775808.
 proof.
   move: (limb4_geq_2_255_cmp r) W64.to_uint_cmp.
-  rewrite !valRep4E !pVal !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  rewrite !valRep4E !pVal /to_list /val_digits /mkseq -!iotaredE => />.
   smt(W64.to_uint_cmp W64.to_uint_small W64.to_uintB).
 qed.
 
@@ -479,9 +479,9 @@ lemma limb4_minus2_63_add38_lea_equiv (r: Rep4):
 proof.
   move => H H0 H1 H2. rewrite helper_lemma_msb_is_not_set.
   do split. move: W64.to_uint_cmp. smt(). move => H3.
-  + rewrite !addcE !/carry_add !b2i0 => />.
+  + rewrite !addcE /carry_add !b2i0 => />.
   + rewrite to_uintD. rewrite !H1.
-  + move: H H0 H1 H2 H3. rewrite !valRep4E !pVal !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  + move: H H0 H1 H2 H3. rewrite !valRep4E !pVal /to_list /val_digits /mkseq -!iotaredE => />.
   + move: W64.to_uint_cmp. smt(W64.to_uint_cmp W64.to_uint_small). auto.
 qed.
 
@@ -502,9 +502,9 @@ lemma limb4_minus2_63_add38_lea_equiv_2 (r: Rep4):
 (of_int 9223372036854775808)%W64.
 proof.
   move => H H0 H1 H2. rewrite helper_lemma_remove_msb.
-  + rewrite !addcE !/carry_add !b2i0 => />.
+  + rewrite !addcE /carry_add !b2i0 => />.
   + rewrite to_uintD. rewrite !H1.
-  + move: H H0 H1 H2. rewrite !valRep4E !pVal !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  + move: H H0 H1 H2. rewrite !valRep4E !pVal /to_list /val_digits /mkseq -!iotaredE => />.
   + move: W64.to_uint_cmp. smt(W64.to_uint_cmp W64.to_uint_small). auto.
 qed.
 
@@ -515,7 +515,7 @@ lemma limb4_minus_2_63_equiv_2 r:
   W64.to_uint (r.[3] - (of_int (exp 2 63))%W64) = W64.to_uint r.[3] - 9223372036854775808.
 proof.
   move: (limb4_geq_2_255_cmp r) W64.to_uint_cmp.
-  rewrite !valRep4E !pVal !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  rewrite !valRep4E !pVal /to_list /val_digits /mkseq -!iotaredE => />.
   smt(W64.to_uint_cmp W64.to_uintK_small W64.to_uintB).
 qed.
 
@@ -616,8 +616,8 @@ proof.
   + case(i = 2) => C0. rewrite C0 => />.
   + case(i = 1) => C1. rewrite C1 => />.
   + case(i = 0) => C2. rewrite C2 => />. smt().
-  rewrite !addcE !/add_carry !/carry_add !b2i0 => />.
-  rewrite !valRep4E !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  rewrite !addcE /carry_add !b2i0 => />.
+  rewrite !valRep4E /to_list /val_digits /mkseq -!iotaredE => />.
   rewrite !mulzDr -!mulzA !to_uintD !of_uintK (modz_small n (exp 2 64)) 1:/# => />.
 
   case((18446744073709551616 <= W64.to_uint r.[0] + n) = false) => C1. rewrite C1 !b2i0 => />.
@@ -682,8 +682,8 @@ proof.
   + case(i = 1) => C1. rewrite C1 => />.
   + case(i = 0) => C2. rewrite C2 => />. smt().
 
-  rewrite !subcE !/borrow_sub !b2i0 => />.
-  rewrite !valRep4E !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  rewrite !subcE /borrow_sub !b2i0 => />.
+  rewrite !valRep4E /to_list /val_digits /mkseq -!iotaredE => />.
   rewrite !mulzDr -!mulzA !to_uintD !to_uintN !of_uintK (modz_small n (exp 2 64)) 1:/# => />.
 
   case ((W64.to_uint r.[0] < n) = false) => C1. rewrite !C1 !b2i0 => />.
@@ -728,7 +728,7 @@ proof.
   rewrite pmod_small. move: W64.to_uint_cmp. smt().
   have E: ((W64.to_uint r.[3] < 1) = false).
   + move: (W64.to_uint_cmp r.[3])  (limb4_ltP_cmp r) H H0 H2 H1.
-  + rewrite !valRep4E !pE !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  + rewrite !valRep4E !pE /to_list /val_digits /mkseq -!iotaredE => />.
   + rewrite !mulzDr -!mulzA  (pmod_small 0 (exp 2 64)) 1:/# => />. smt().
   + have ->: (W64.to_uint r.[3] + 18446744073709551615) %% 18446744073709551616 =
    (W64.to_uint r.[3] + 18446744073709551615) - 18446744073709551616.
@@ -751,8 +751,8 @@ proof.
   + case(i = 1) => C1. rewrite C1 => />.
   + case(i = 0) => C2. rewrite C2 => />. smt().
 
-  rewrite !subcE !/borrow_sub !b2i0 => />.
-  rewrite !valRep4E !/to_list !/val_digits !/mkseq -!iotaredE => />.
+  rewrite !subcE /borrow_sub !b2i0 => />.
+  rewrite !valRep4E /to_list /val_digits /mkseq -!iotaredE => />.
   rewrite !mulzDr -!mulzA !to_uintD !to_uintN !of_uintK.
   have ->: W64.to_uint r.[0] < 0 = false. move: W64.to_uint_cmp; 1:smt().
   have ->: W64.to_uint r.[1] < 0 = false. move: W64.to_uint_cmp; 1:smt().
@@ -849,8 +849,8 @@ proof.
   + move: valRep4_cmp. smt(). move => H3.
   + move: valRep4_cmp. smt(). move => H4 H5 H6.
   + rewrite -H6. move : H H0 H1 H2 H4 H5 H6.
-  + rewrite !valRep4E !pVal !/to_list !/val_digits !/mkseq -!iotaredE => />.
-  + move: W64.to_uint_cmp. rewrite !addcE !/carry_add !b2i0 => />. smt().
+  + rewrite !valRep4E !pVal /to_list /val_digits /mkseq -!iotaredE => />.
+  + move: W64.to_uint_cmp. rewrite !addcE /carry_add !b2i0 => />. smt().
   auto => />. smt(pVal cminusP1).
 qed.
 
@@ -888,8 +888,8 @@ proof.
   + move: valRep4_cmp. smt(). move => H4.
   + move: valRep4_cmp. smt(). move => H4 H5 H6.
   + rewrite -H6. move : H H0 H1 H2 H4 H5 H6.
-  + rewrite !valRep4E !pVal !/to_list !/val_digits !/mkseq -!iotaredE => />.
-  + move: W64.to_uint_cmp. rewrite !addcE !/carry_add !b2i0 => />. smt().
+  + rewrite !valRep4E !pVal /to_list /val_digits /mkseq -!iotaredE => />.
+  + move: W64.to_uint_cmp. rewrite !addcE /carry_add !b2i0 => />. smt().
   + auto => />. smt(pVal cminusP1).
 qed.
 

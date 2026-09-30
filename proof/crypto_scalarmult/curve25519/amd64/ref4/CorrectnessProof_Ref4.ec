@@ -427,11 +427,9 @@ lemma eq_set_last_bit_to_zero64_ref4 x :
 proof.
     proc; wp; skip => />.
     rewrite /last_bit_to_zero64 => />; congr.
-    pose X := x.[3].
-    rewrite /of_int /int2bs  /mkseq /to_list -iotaredE => />.
-    rewrite andE  wordP => /> k K0 K1.
-    rewrite  map2iE //  get_bits2w //.
-    smt(W64.initE).
+    rewrite wordP => i hi.
+    have /= -> := W64.of_int_powm1 63 i.
+    rewrite get_setE 1:// /#.
 qed.
 
 lemma ill_set_last_bit_to_zero64: islossless M.__decode_u_coordinate4 by islossless.
@@ -509,9 +507,9 @@ equiv eq_spec_impl_decode_scalar_25519_ref4 : CurveProcedures.decode_scalar ~ M.
 proof.
     proc; wp; auto => />.
     unroll for{2} ^while => />; wp; skip => /> &2.
-    rewrite !/set64_direct !/get8 !/init8 => />.
+    rewrite /set64_direct /get8 /init8 => />.
     rewrite pack4E pack32E.
-    rewrite !/to_list /mkseq -!iotaredE => /> .
+    rewrite /to_list /mkseq -!iotaredE => /> .
     rewrite !of_intE modz_small. by apply bound_abs. rewrite !bits2wE /int2bs /mkseq -!iotaredE => />.
     rewrite wordP => i rgi />.
     rewrite !of_listE !bits8E //= => />.
@@ -600,7 +598,7 @@ proof.
     rewrite inzpRep4E. congr.
     rewrite to_uint_unpack4u64  valRep4E; congr; congr.
     rewrite /last_bit_to_zero64 => />.
-    rewrite /to_list /mkseq /to_list -iotaredE => />.
+    rewrite /to_list /mkseq -iotaredE => />.
     do split.
     + rewrite !wordP => /> i I I0. rewrite !bits64iE => />.
     + rewrite set_neqiE. smt().
@@ -649,12 +647,12 @@ proof.
     inline *; wp; skip => />.
     rewrite inzpRep4E. congr.
     rewrite to_uint_unpack4u64  valRep4E; congr; congr.
-    rewrite /last_bit_to_zero64 => />.
+    move => />.
     have !->: ((of_int 9))%W256.[255 <- false] = ((of_int 9))%W256.
-    rewrite !of_intE !bits2wE !/int2bs !/mkseq -iotaredE => />.
+    rewrite !of_intE !bits2wE /int2bs /mkseq -iotaredE => />.
     apply W256.ext_eq => />. move => X X0 X1.
     rewrite get_setE //. case (X = 255) => /> C.
-    rewrite /to_list /mkseq /to_list -iotaredE => />.
+    rewrite /to_list /mkseq -iotaredE => />.
  qed.
 
 (** step 3 : ith_bit - quite slow, cryptoline candidate? **)
@@ -668,7 +666,7 @@ proof.
     proc; wp; skip => /> &2 H H0.
     rewrite (W64.and_mod 3 ctr{2}) //=  (W64.and_mod 6 (of_int (to_uint ctr{2} %% 8))%W64) //= !to_uint_shr //= !shr_shrw.
     smt(W64.to_uint_cmp  W64.of_uintK W64.to_uintK).
-    rewrite /zeroextu64 /truncateu8 //=  !of_uintK => />.
+    rewrite /zeroextu64 //=  !of_uintK => />.
     + rewrite of_intE modz_small. apply bound_abs. smt(W8.to_uint_cmp JUtils.powS_minus JUtils.pow2_0).
     rewrite bits2wE /int2bs /mkseq -iotaredE => />.
     auto => />.
@@ -676,14 +674,14 @@ proof.
     rewrite (modz_small (to_uint ctr{2} %% 8) 64). apply bound_abs. smt(W64.to_uint_cmp).
     rewrite (modz_small (to_uint ctr{2} %% 8) W64.modulus). apply bound_abs. smt(W64.to_uint_cmp).
     pose ctr := to_uint ctr{2}.
-    rewrite pack32E of_listE /to_list !/mkseq !initiE // -!iotaredE => />.
+    rewrite pack32E of_listE /to_list /mkseq !initiE // -!iotaredE => />.
     rewrite !initiE //=. auto => />. smt().
-    rewrite !/b2i !of_intE !bits2wE !/int2bs !/mkseq //=.
+    rewrite /b2i !of_intE !bits2wE /int2bs /mkseq //=.
     rewrite -!iotaredE => />.
-    rewrite !to_uintE !/bs2int !/w2bits !/mkseq /big /range !/predT -!iotaredE => />.
+    rewrite !to_uintE /bs2int /w2bits /mkseq /big /range /predT -!iotaredE => />.
     rewrite !b2i0 => />.
     rewrite !initiE => />. smt(). auto => />.
-    rewrite !/b2i => />.
+    rewrite /b2i => />.
     + case(ctr %/ 8 = 0) => /> *. smt().
     + case(ctr %/ 8 - 1 = 0) => /> *. smt().
     + case(ctr %/ 8 - 2 = 0) => /> *. smt().
@@ -729,11 +727,11 @@ equiv eq_spec_impl_init_points_ref4 :
 proof.
     proc.
     wp. unroll for{2} ^while. auto => />.
-    split; auto => />. rewrite /H4 /H0 /H2 /H3 /Zp.one /set0_64_ /inzpRep4 => />.
+    split; auto => />. rewrite /Zp.one /set0_64_ /inzpRep4 => />.
         rewrite /valRep4 /to_list /mkseq -iotaredE => />.
-    split; auto => />. rewrite /H5  /H0 /H3 /H2 /Zp.zero /set0_64_ /inzpRep4 => />.
+    split; auto => />. rewrite /Zp.zero /set0_64_ /inzpRep4 => />.
         rewrite /valRep4 /to_list /mkseq -iotaredE  => />.
-    rewrite /H6  /H0 /H3 /H2 /Zp.zero /set0_64_ /inzpRep4 // /valRep4 /to_list /mkseq -iotaredE  => />.
+    rewrite /Zp.zero /set0_64_ /inzpRep4 // /valRep4 /to_list /mkseq -iotaredE  => />.
 qed.
 
 (** step 4 : cswap **)
@@ -769,7 +767,7 @@ case: (toswap{1}).
   rcondf {1} 1 => //. wp => /=; skip.
     move => &1 &2 [#] 4!->> ??.
     have mask_not_set :  (set0_64.`6 - toswap{2}) = W64.zero. rewrite /set0_64_ => />. smt().
-    rewrite !mask_not_set !andw0 !xorw0 !/copy_64 => />.
+    rewrite !mask_not_set !andw0 !xorw0 /copy_64 => />.
     do split.
     congr. smt(Array4.initE Array4.ext_eq Array4.set_set_if).
     congr. smt(Array4.initE Array4.ext_eq Array4.set_set_if).

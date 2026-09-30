@@ -43,16 +43,6 @@ inline fn __sub4_sss(stack u64[4] fs gs) -> stack u64[4]
   return hs;
 }
 
-inline fn __sub4_rss(stack u64[4] fs gs) -> reg u64[4]
-{
-  reg u64[4] h f;
-
-  f = #copy(fs);
-  h = __sub4_rrs(f, gs);
-
-  return h;
-}
-
 inline fn __sub4_rsr(stack u64[4] fs, reg u64[4] g) -> reg u64[4]
 {
   inline int i;
